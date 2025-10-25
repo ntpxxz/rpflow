@@ -1,8 +1,14 @@
+// app/(app)/reports/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { Request } from "@/models/request";
-import Card from "@/components/Card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   BarChart,
   Bar,
@@ -47,33 +53,43 @@ export default function Reports() {
   }, []);
 
   return (
-    <div>
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold mb-6">Reports</h1>
 
       {/* Requests per Department */}
-      <Card title="Requests per Department" className="mb-6">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={departmentData}>
-            <XAxis dataKey="department" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="count" fill="#3b82f6" />
-          </BarChart>
-        </ResponsiveContainer>
+      <Card>
+        <CardHeader>
+          <CardTitle>Requests per Department</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={departmentData}>
+              <XAxis dataKey="department" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="count" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
       </Card>
 
       {/* Monthly Spending */}
-      <Card title="Monthly Spending">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={monthlyData}>
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="spending" fill="#10b981" />
-          </BarChart>
-        </ResponsiveContainer>
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Spending</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyData}>
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="spending" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
       </Card>
     </div>
   );
