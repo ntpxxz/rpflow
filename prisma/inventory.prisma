@@ -1,0 +1,22 @@
+// prisma/inventory.prisma
+
+generator inventoryClient {
+  provider = "prisma-client-js"
+  // 👇 กำหนด path ใหม่สำหรับ client ตัวนี้
+  output   = "../node_modules/@prisma/inventory-client"
+}
+
+datasource inventoryDb {
+  provider = "postgresql" // หรือ mysql, sqlserver, etc. ตาม DB ของ Inventory
+  url      = env("INVENTORY_DATABASE_URL") // 👈 อ่านจาก .env
+}
+
+model InventoryItem {
+  barcode   String  @id @map("barcode") // หรือ @unique ถ้าไม่ใช่ ID หลัก
+  name        String
+  description String?
+  unit_price  Decimal @map("price_per_unit")
+
+  // 👇 ตั้งชื่อตารางให้ตรงกับใน DB asset_management
+  @@map("inventory_items")
+}

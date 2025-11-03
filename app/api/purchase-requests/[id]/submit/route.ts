@@ -15,7 +15,7 @@ export async function PATCH(
     // TODO: นี่คือ Logic การหาผู้อนุมัติ (Approval Logic)
     // คุณต้องไปหา ID ของ "Manager" หรือ "Finance" จากฐานข้อมูล User
     // นี่เป็นตัวอย่าง Hardcode ว่าต้องให้ User ID นี้อนุมัติ
-    const managerApproverId = "clx...."; // 👈 🔴 HARDCODE: ใส่ ID ของ User ที่เป็น Admin
+    const managerApproverId = process.env.TEST_APPROVER_ID; // 👈 🔴 HARDCODE: ใส่ ID ของ User ที่เป็น Admin
 
     if (!actorId || !managerApproverId) {
       return NextResponse.json({ message: "Approver not found" }, { status: 404 });

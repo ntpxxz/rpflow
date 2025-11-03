@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 
 const links = [
   { name: "Dashboard", href: "/" },
-  { name: "Purchase", href: "/purchase" },
+  { name: "Request", href: "/purchase-requests/new" },
   { name: "Approval", href: "/approval" },
   { name: "Reports", href: "/reports" },
   { name: "Settings", href: "/settings" },
@@ -26,7 +26,7 @@ const baseLinks = [
 
 // 2. สร้าง Links ตาม Role
 const requesterLinks = [
-  { name: "Purchase", href: "/purchase" },
+  { name: "Request", href: "/purchase-requests/new" },
   
 ];
 

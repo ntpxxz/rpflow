@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+// prisma/seed.ts
+import { PrismaClient, UserRole } from '@prisma/client'; // 👈 Import UserRole
 
 // 1. ⚠️ ใช้ path ไปยัง prisma client ของคุณ
 // (ถ้าไฟล์ seed.ts อยู่ใน /prisma และ lib อยู่ที่ root, path นี้ควรจะถูก)
@@ -7,30 +8,55 @@ import { prisma as db } from '../lib/prisma';
 async function main() {
   console.log("Start seeding...");
 
-  // 2. 🔻 สร้าง User ตัวอย่าง 🔻
-  // เราใช้ 'upsert' เพื่อให้รันซ้ำได้
-  // มันจะ "อัปเดต" ถ้าเจอ ID นี้ หรือ "สร้างใหม่" ถ้าไม่เจอ
-  const testUser = await db.user.upsert({
-    where: { 
-      // ⚠️ คุณต้องมี field ที่เป็น @unique ในโมเดล User
-      //    (ถ้าไม่มี id, ให้ใช้ email ที่เป็น @unique แทน)
-      id: 'user_test_001' 
-    }, 
-    update: {}, // ไม่ต้องอัปเดตอะไรถ้าเจอ
+  // --- สร้าง User ตัวอย่าง ---
+  const requesterUser = await db.user.upsert({
+    where: { email: 'requester@example.com' }, // 👈 ใช้ email เป็น unique key
+    update: {},
     create: {
-      id: 'user_test_001', // 👈 นี่คือ ID ที่เราจะใช้
-      name: "Sam's Test Account",
-    
-    email: 'testuser@mail.com' ,
-      
-      // ⚠️ เพิ่ม field อื่นๆ ที่ "บังคับ" (required) ในโมเดล User ของคุณ
-      // เช่น email, password (ถ้ามี)
-      // email: 'test@example.com', 
-      // password: '...'
+      id: 'user_requester_001', // กำหนด ID หรือปล่อยให้ Prisma สร้าง cuid()
+      name: 'Test Requester',
+      email: 'requester@example.com',
+      role: UserRole.REQUESTER, // 👈 กำหนด Role
     },
   });
+  console.log(`Created requester user: ${requesterUser.email} (Role: ${requesterUser.role})`);
 
-  console.log(`Created test user with id: ${testUser.id}`);
+  const approverUser = await db.user.upsert({
+    where: { email: 'approver@example.com' },
+    update: {},
+    create: {
+      id: 'user_approver_001',
+      name: 'Test Approver',
+      email: 'approver@example.com',
+      role: UserRole.APPROVER, // 👈 กำหนด Role
+    },
+  });
+  console.log(`Created approver user: ${approverUser.email} (Role: ${approverUser.role})`);
+
+  const purchaserUser = await db.user.upsert({
+    where: { email: 'purchaser@example.com' },
+    update: {},
+    create: {
+      id: 'user_purchaser_001',
+      name: 'Test Purchaser',
+      email: 'purchaser@example.com',
+      role: UserRole.PURCHASER, // 👈 กำหนด Role
+    },
+  });
+  console.log(`Created purchaser user: ${purchaserUser.email} (Role: ${purchaserUser.role})`);
+
+  const adminUser = await db.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      id: 'user_admin_001',
+      name: 'Test Admin',
+      email: 'admin@example.com',
+      role: UserRole.ADMIN, // 👈 กำหนด Role
+    },
+  });
+  console.log(`Created admin user: ${adminUser.email} (Role: ${adminUser.role})`);
+
   console.log("Seeding finished.");
 }
 

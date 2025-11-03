@@ -1,37 +1,17 @@
-/*
-  Warnings:
+-- CreateEnum
+CREATE TYPE "RequestStatus" AS ENUM ('pending', 'approving', 'approved', 'ordered', 'received', 'rejected', 'cancelled');
 
-  - You are about to drop the column `department` on the `users` table. All the data in the column will be lost.
-  - You are about to drop the `requests` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "ApprovalStatus" AS ENUM ('pending', 'approved', 'rejected');
 
 -- CreateEnum
 CREATE TYPE "POStatus" AS ENUM ('pending', 'sent', 'partial', 'fulfilled', 'cancelled');
 
--- AlterEnum
--- This migration adds more than one value to an enum.
--- With PostgreSQL versions 11 and earlier, this is not possible
--- in a single migration. This can be worked around by creating
--- multiple migrations, each migration adding only one value to
--- the enum.
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('requester', 'approver', 'purchaser', 'admin', 'user');
 
-
-ALTER TYPE "RequestStatus" ADD VALUE 'approving';
-ALTER TYPE "RequestStatus" ADD VALUE 'ordered';
-ALTER TYPE "RequestStatus" ADD VALUE 'received';
-ALTER TYPE "RequestStatus" ADD VALUE 'cancelled';
-
--- DropForeignKey
-ALTER TABLE "public"."requests" DROP CONSTRAINT "requests_user_id_fkey";
-
--- AlterTable
-ALTER TABLE "users" DROP COLUMN "department";
-
--- DropTable
-DROP TABLE "public"."requests";
+-- CreateEnum
+CREATE TYPE "RequestType" AS ENUM ('NORMAL', 'URGENT', 'PROJECT');
 
 -- CreateTable
 CREATE TABLE "item_master" (
@@ -45,10 +25,22 @@ CREATE TABLE "item_master" (
 );
 
 -- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "role" "UserRole" NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "purchase_requests" (
     "id" TEXT NOT NULL,
     "status" "RequestStatus" NOT NULL DEFAULT 'pending',
     "total_amount" DECIMAL(65,30),
+    "requesterName" TEXT NOT NULL,
+    "type" "RequestType" NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "user_id" TEXT NOT NULL,
@@ -57,16 +49,17 @@ CREATE TABLE "purchase_requests" (
 );
 
 -- CreateTable
-CREATE TABLE "request_items" (
+CREATE TABLE "RequestItem" (
     "id" TEXT NOT NULL,
-    "quantity" INTEGER NOT NULL DEFAULT 1,
-    "unit_price" DECIMAL(65,30) NOT NULL,
-    "description" TEXT,
-    "image_url" TEXT,
-    "request_id" TEXT NOT NULL,
-    "item_master_id" TEXT NOT NULL,
+    "itemName" TEXT NOT NULL,
+    "detail" TEXT,
+    "imageUrl" TEXT,
+    "quantity" INTEGER NOT NULL,
+    "unitPrice" DECIMAL(10,2) NOT NULL,
+    "item_master_id" TEXT,
+    "requestId" TEXT NOT NULL,
 
-    CONSTRAINT "request_items_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "RequestItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -143,6 +136,9 @@ CREATE TABLE "goods_receipt_items" (
 CREATE UNIQUE INDEX "item_master_item_code_key" ON "item_master"("item_code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "purchase_orders_po_number_key" ON "purchase_orders"("po_number");
 
 -- CreateIndex
@@ -152,10 +148,10 @@ CREATE UNIQUE INDEX "purchase_orders_request_id_key" ON "purchase_orders"("reque
 ALTER TABLE "purchase_requests" ADD CONSTRAINT "purchase_requests_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "request_items" ADD CONSTRAINT "request_items_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "purchase_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "RequestItem" ADD CONSTRAINT "RequestItem_item_master_id_fkey" FOREIGN KEY ("item_master_id") REFERENCES "item_master"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "request_items" ADD CONSTRAINT "request_items_item_master_id_fkey" FOREIGN KEY ("item_master_id") REFERENCES "item_master"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "RequestItem" ADD CONSTRAINT "RequestItem_requestId_fkey" FOREIGN KEY ("requestId") REFERENCES "purchase_requests"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "approval_steps" ADD CONSTRAINT "approval_steps_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "purchase_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;

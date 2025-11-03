@@ -9,15 +9,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//--- Enums ---
-enum UserRole {
-  Admin @map("admin")
-  User  @map("user")
-}
-
 enum RequestStatus {
-  Pending   @map("pending")   // รอดำเนินการ (ร่าง)
-  Approving @map("approving") // กำลังรออนุมัติ
+  Pending   @map("pending")   // รอดำเนินการ
   Approved  @map("approved")  // อนุมัติแล้ว (รอสร้าง PO)
   Ordered   @map("ordered")   // สั่งซื้อแล้ว
   Received  @map("received")  // ได้รับของครบแล้ว
@@ -39,45 +32,29 @@ enum POStatus {
   Cancelled @map("cancelled")
 }
 
-//--- ตารางข้อมูลหลัก (Master Data) ---
 
-// (ใหม่) ตารางข้อมูลสินค้าหลัก (Catalog)
-model ItemMaster {
-  id          String   @id
-  itemCode    String   @unique @map("item_code") // SKU
-  name        String
-  description String?
-  unitPrice   Decimal  @default(0) @map("unit_price") // ราคามาตรฐาน
-
-  // ความสัมพันธ์
-  //requestItems  RequestItem[]
-  poItems       PurchaseOrderItem[]
-
-  @@map("item_master")
-}
 
 //--- ตารางกระบวนการ (Process Tables) ---
 
 // ตารางผู้ใช้งาน
 enum UserRole {
-  REQUESTER @map("requester") 
-  APPROVER  @map("approver")  
-  PURCHASER @map("purchaser")  
-  ADMIN     @map("admin") 
+  Requester @map("requester") 
+  Approver  @map("approver")  
+  Purchaser @map("purchaser")  
+  Admin    @map("admin") 
+  User  @map("user")
 }
 
 model User {
   id              String           @id @default(cuid())
   name            String
   email           String           @unique
-  role            UserRole         @default(REQUESTER) 
+  role            UserRole         @default(Requester)
   
-  // ... (ความสัมพันธ์อื่นๆ เหมือนเดิม)
-  
-  // (ความสัมพันธ์สำหรับ NextAuth จะถูกเพิ่มโดยอัตโนมัติ)
-  // Account   Account[]
-  // Session   Session[]
-
+purchaseRequests PurchaseRequest[] 
+  approvalSteps    ApprovalStep[]    
+  historyEntries   RequestHistory[]  
+  goodsReceipts    GoodsReceipt[]   
   @@map("users")
 }
 // (ปรับปรุง) ตารางใบขอซื้อ (ใบหลัก)
@@ -86,9 +63,20 @@ enum RequestType {
   URGENT
   PROJECT
 }
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+  ordered
+  received
+  cancelled
+}
+
+
 model PurchaseRequest {
-  id        String   @id // 👈 ที่เราแก้ครั้งที่แล้ว (ถูกต้อง)
-  status    RequestStatus @default(Pending)
+  id        String   @id 
+  status    RequestStatus @default(pending)
   totalAmount Decimal?   @map("total_amount")
 
   // 2. 🔻🔻 เพิ่ม 2 field นี้ 🔻🔻
@@ -110,31 +98,32 @@ model PurchaseRequest {
   @@map("purchase_requests")
 }
 
-// (ปรับปรุง) ตารางรายการสินค้าในใบขอซื้อ
+//ตารางรายการสินค้าในใบขอซื้อ
 model RequestItem {
   id        String   @id @default(cuid())
-  
-  // ✅ เพิ่ม Field ใหม่สำหรับเก็บข้อมูลที่พิมพ์เอง
+ 
   itemName  String
   detail    String?
   imageUrl  String?
   quantity  Int
   unitPrice Decimal  @db.Decimal(10, 2) // (แนะนำให้ใช้ Decimal สำหรับราคา)
 
-  // ❌ ลบ 2 บรรทัดนี้ทิ้ง ❌
-  // itemMaster   ItemMaster @relation(fields: [itemMasterId], references: [id])
-  // itemMasterId String
-
+ 
   // ความสัมพันธ์กับใบ PR ยังอยู่เหมือนเดิม
   request   PurchaseRequest @relation(fields: [requestId], references: [id])
   requestId String
 }
 
-// ตารางขั้นตอนการอนุมัติ (เหมือนเดิม)
+enum ApprovalStatus {
+  pending   // 👈 lowercase
+  approved  // 👈 lowercase
+  rejected  // 👈 lowercase
+}
+
 model ApprovalStep {
   id         String         @id @default(cuid())
   stepName   String         @map("step_name")
-  status     ApprovalStatus @default(Pending)
+  status     ApprovalStatus @default(pending) // 👈 เปลี่ยนเป็น lowercase
   comment    String?
   approvedAt DateTime?      @map("approved_at")
 
@@ -144,9 +133,9 @@ model ApprovalStep {
   approver   User            @relation(fields: [approverId], references: [id])
   approverId String          @map("approver_id")
 
+  @@unique([requestId, stepName, approverId]) // 👈 เพิ่มเพื่อป้องกันซ้ำ
   @@map("approval_steps")
 }
-
 // ตารางประวัติ (เหมือนเดิม)
 model RequestHistory {
   id        String   @id @default(cuid())
@@ -193,11 +182,9 @@ model PurchaseOrderItem {
   po     PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   poId   String        @map("po_id")
 
-  itemMaster ItemMaster    @relation(fields: [itemMasterId], references: [id])
-  itemMasterId String      @map("item_master_id") // 👈 Foreign Key ไปยัง Catalog
-  
-  receiptItems GoodsReceiptItem[] // 1 PO Item อาจถูกทยอยรับของ
-
+  itemName String // ชื่อสินค้าตอนสั่งซื้อ
+  detail   String? // รายละเอียดตอนสั่งซื้อ
+  receiptItems GoodsReceiptItem[]
   @@map("purchase_order_items")
 }
 
