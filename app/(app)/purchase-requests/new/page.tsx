@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Trash2, Loader2, Search } from "lucide-react";
+import router from "next/router";
 
 // 1. 👈 Type สำหรับ Item Master
 type InventoryItem = {
@@ -154,7 +155,30 @@ export default function Purchase() {
     setCart((prev) => prev.filter((_, i) => i !== index));
     setSubmitStatus(null); 
   };
-  
+
+  /**
+   * อัปเดตจำนวน (Quantity) ของสินค้าในตะกร้าตาม index
+   */
+  const handleUpdateItemQuantity = (index: number, newQuantityStr: string) => {
+    const newQuantity = parseInt(newQuantityStr, 10);
+    
+    // ป้องกันค่าว่าง, ติดลบ หรือ 0 (บังคับให้มีอย่างน้อย 1)
+    const validQuantity = Math.max(1, newQuantity || 1); 
+
+    setCart((prevCart) => 
+      prevCart.map((item, i) => {
+        // หา item ตัวที่ถูกแก้
+        if (i === index) {
+          // คืนค่า item เดิม แต่เปลี่ยนแค่ quantity
+          return { ...item, quantity: validQuantity };
+        }
+        // คืนค่า item ตัวอื่นไปตามเดิม
+        return item;
+      })
+    );
+  // ล้างสถานะ Error/Success ถ้ามี
+  setSubmitStatus(null);
+};
   // 9. 👈 Handler "ส่งใบขอซื้อ" (กลับไปใช้ FormData)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -207,11 +231,12 @@ export default function Purchase() {
       setCart([]);
       setRequesterName("");
       setRequestType("");
+      window.location.href = '/dashboard'; // เปลี่ยนหน้าไปที่รายการขอซื้อ
 
     } catch (err: any) {
       setSubmitStatus({ type: "error", message: err.message || "An unknown error occurred." });
     } finally {
-      setIsSubmitting(false); 
+      setIsSubmitting(false);
     }
   };
   
@@ -402,7 +427,16 @@ export default function Purchase() {
                           {item.detail || "-"}
                         </div> 
                       </TableCell>
-                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
+                          min={1}
+                          className="h-9 w-20" // 👈 จำกัดความกว้าง
+                          disabled={isSubmitting}
+                        />
+                      </TableCell>
                       <TableCell>฿{item.unitPrice.toFixed(2)}</TableCell>
                       <TableCell>฿{(item.quantity * item.unitPrice).toFixed(2)}</TableCell>
                       <TableCell>
