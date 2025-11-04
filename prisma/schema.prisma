@@ -9,20 +9,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RequestStatus {
-  Pending   @map("pending")   // รอดำเนินการ
-  Approved  @map("approved")  // อนุมัติแล้ว (รอสร้าง PO)
-  Ordered   @map("ordered")   // สั่งซื้อแล้ว
-  Received  @map("received")  // ได้รับของครบแล้ว
-  Rejected  @map("rejected")  // ถูกปฏิเสธ
-  Cancelled @map("cancelled") // ผู้ขอ Canceled
-}
-
-enum ApprovalStatus {
-  Pending  @map("pending")
-  Approved @map("approved")
-  Rejected @map("rejected")
-}
+// 🛑 (ลบ) enum RequestStatus (PascalCase) ที่ซ้ำซ้อน (บรรทัด 10-17 เดิม)
+// 🛑 (ลบ) enum ApprovalStatus (PascalCase) ที่ซ้ำซ้อน (บรรทัด 19-23 เดิม)
 
 enum POStatus {
   Pending   @map("pending")  // ร่าง PO
@@ -32,8 +20,6 @@ enum POStatus {
   Cancelled @map("cancelled")
 }
 
-
-
 //--- ตารางกระบวนการ (Process Tables) ---
 
 // ตารางผู้ใช้งาน
@@ -41,22 +27,23 @@ enum UserRole {
   Requester @map("requester") 
   Approver  @map("approver")  
   Purchaser @map("purchaser")  
-  Admin    @map("admin") 
-  User  @map("user")
+  Admin     @map("admin") 
+  User      @map("user")
 }
 
 model User {
-  id              String           @id @default(cuid())
-  name            String
-  email           String           @unique
-  role            UserRole         @default(Requester)
+  id               String           @id @default(cuid())
+  name             String
+  email            String           @unique
+  role             UserRole         @default(Requester)
   
-purchaseRequests PurchaseRequest[] 
+  purchaseRequests PurchaseRequest[] 
   approvalSteps    ApprovalStep[]    
   historyEntries   RequestHistory[]  
   goodsReceipts    GoodsReceipt[]   
   @@map("users")
 }
+
 // (ปรับปรุง) ตารางใบขอซื้อ (ใบหลัก)
 enum RequestType {
   NORMAL
@@ -64,6 +51,9 @@ enum RequestType {
   PROJECT
 }
 
+// 
+// ✅ (คงไว้) enum RequestStatus (lowercase) ที่ถูกต้อง (บรรทัด 66 เดิม)
+// 
 enum RequestStatus {
   pending
   approved
@@ -76,10 +66,9 @@ enum RequestStatus {
 
 model PurchaseRequest {
   id        String   @id 
-  status    RequestStatus @default(pending)
-  totalAmount Decimal?   @map("total_amount")
+  status    RequestStatus @default(pending) // 👈 ใช้งาน Enum (lowercase) ตัวนี้
+  totalAmount Decimal? @map("total_amount")
 
-  // 2. 🔻🔻 เพิ่ม 2 field นี้ 🔻🔻
   requesterName String
   type          RequestType
 
@@ -93,8 +82,6 @@ model PurchaseRequest {
   items         RequestItem[]
   approvalSteps ApprovalStep[]
   history       RequestHistory[]
-  purchaseOrder PurchaseOrder?
-
   @@map("purchase_requests")
 }
 
@@ -106,14 +93,17 @@ model RequestItem {
   detail    String?
   imageUrl  String?
   quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2) // (แนะนำให้ใช้ Decimal สำหรับราคา)
+  unitPrice Decimal  @db.Decimal(10, 2) 
 
- 
-  // ความสัมพันธ์กับใบ PR ยังอยู่เหมือนเดิม
   request   PurchaseRequest @relation(fields: [requestId], references: [id])
   requestId String
+  quantityOrdered Int @default(0) @map("quantity_ordered")
+  poItems PurchaseOrderItem[]
 }
 
+// 
+// ✅ (คงไว้) enum ApprovalStatus (lowercase) ที่ถูกต้อง (บรรทัด 113 เดิม)
+// 
 enum ApprovalStatus {
   pending   // 👈 lowercase
   approved  // 👈 lowercase
@@ -123,7 +113,7 @@ enum ApprovalStatus {
 model ApprovalStep {
   id         String         @id @default(cuid())
   stepName   String         @map("step_name")
-  status     ApprovalStatus @default(pending) // 👈 เปลี่ยนเป็น lowercase
+  status     ApprovalStatus @default(pending) // 👈 ใช้งาน Enum (lowercase) ตัวนี้
   comment    String?
   approvedAt DateTime?      @map("approved_at")
 
@@ -133,9 +123,10 @@ model ApprovalStep {
   approver   User            @relation(fields: [approverId], references: [id])
   approverId String          @map("approver_id")
 
-  @@unique([requestId, stepName, approverId]) // 👈 เพิ่มเพื่อป้องกันซ้ำ
+  @@unique([requestId, stepName, approverId]) 
   @@map("approval_steps")
 }
+
 // ตารางประวัติ (เหมือนเดิม)
 model RequestHistory {
   id        String   @id @default(cuid())
@@ -157,14 +148,11 @@ model PurchaseOrder {
   id       String   @id @default(cuid())
   poNumber String   @unique @map("po_number") // เลขที่ PO
   status   POStatus @default(Pending)
+ 
   sentAt   DateTime? @map("sent_at")
   
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  // ความสัมพันธ์
-  request   PurchaseRequest @relation(fields: [requestId], references: [id])
-  requestId String          @unique @map("request_id") // 1 PO มาจาก 1 Request
 
   items     PurchaseOrderItem[]
   receipts  GoodsReceipt[] // 1 PO อาจมีการทยอยรับของ (หลาย Delivery)
@@ -183,7 +171,11 @@ model PurchaseOrderItem {
   poId   String        @map("po_id")
 
   itemName String // ชื่อสินค้าตอนสั่งซื้อ
-  detail   String? // รายละเอียดตอนสั่งซื้อ
+  detail   String?
+
+  requestItem   RequestItem? @relation(fields: [requestItemId], references: [id], onDelete: SetNull)
+  requestItemId String?      @map("request_item_id")
+
   receiptItems GoodsReceiptItem[]
   @@map("purchase_order_items")
 }
@@ -191,24 +183,24 @@ model PurchaseOrderItem {
 // (ใหม่) ตารางการรับของ (Goods Receipt / Delivery Note)
 model GoodsReceipt {
   id        String    @id @default(cuid())
-  notes     String?   // เช่น "กล่องบุบ", "เลขที่ใบส่งของ XXX"
+  notes     String?
   receivedAt DateTime @default(now()) @map("received_at")
 
   // ความสัมพันธ์
   po        PurchaseOrder @relation(fields: [poId], references: [id])
-  poId      String        @map("po_id") // 👈 รับของจาก PO ใบไหน
+  poId      String        @map("po_id") 
 
   receivedBy User         @relation(fields: [receivedById], references: [id])
-  receivedById String     @map("received_by_id") // 👈 ใครเป็นคนรับของ
+  receivedById String     @map("received_by_id") 
 
-  items     GoodsReceiptItem[] // 👈 รายการของที่รับในครั้งนี้
+  items     GoodsReceiptItem[] 
 
   @@map("goods_receipts")
 }
 
 // (ใหม่) ตารางรายการสินค้าที่รับ (Items ใน Delivery)
 model GoodsReceiptItem {
-  id               String @id @default(cuid())
+  id                 String @id @default(cuid())
   quantityReceived Int    @map("quantity_received")
 
   // ความสัมพันธ์
@@ -216,7 +208,7 @@ model GoodsReceiptItem {
   receiptId        String            @map("receipt_id")
 
   poItem           PurchaseOrderItem @relation(fields: [poItemId], references: [id])
-  poItemId         String            @map("po_item_id") // 👈 อ้างอิงว่ารับของรายการไหนจาก PO
+  poItemId         String            @map("po_item_id") 
 
   @@map("goods_receipt_items")
 }
