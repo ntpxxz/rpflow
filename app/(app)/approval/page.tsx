@@ -176,8 +176,8 @@ export default function Approval() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Requestor</TableHead>
                       <TableHead>Request ID</TableHead>
+                      <TableHead>Requestor</TableHead>
                       <TableHead>Total Amount</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -193,8 +193,8 @@ export default function Approval() {
                           className="cursor-pointer" 
                           onClick={() => handleRowClick(step.requestId)}
                         >
-                          <TableCell>{step.request.user.name}</TableCell>
                           <TableCell>{step.request.id}</TableCell>
+                          <TableCell>{step.request.user.name}</TableCell>
                           <TableCell>
                             ฿{Number(step.request.totalAmount).toFixed(2)}
                           </TableCell>
