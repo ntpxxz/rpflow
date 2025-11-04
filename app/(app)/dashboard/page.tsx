@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toLowerCase } from "zod";
+
 
 // 3. 👈 อัปเดต Type ให้มี approvalSteps
 type RequestWithDetails = PurchaseRequest & {
