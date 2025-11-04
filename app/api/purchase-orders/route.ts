@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
             poId: po.id,
             itemName: item.itemName,
             detail: item.detail,
+            imageUrl: item.imageUrl,
             quantity: quantityToOrder,
             unitPrice: item.unitPrice,
             requestItemId: item.id, // 👈 เชื่อมกลับไปที่ RequestItem

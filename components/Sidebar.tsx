@@ -37,7 +37,9 @@ const approverLinks = [
 
 const procurementLinks = [
   { name: "Procurement", href: "/procurement" },
+  { name: "PO List", href: "/purchase-orders" }, 
 ];
+
 
 
 const adminLinks = [
@@ -53,6 +55,7 @@ export default function Sidebar({ open, onClose }: Props) {
     ...requesterLinks,
     ...approverLinks,   
     ...procurementLinks,
+   
     ...adminLinks      // (จากที่เราเคยเพิ่ม)
   ];
 

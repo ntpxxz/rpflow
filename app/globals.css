@@ -112,6 +112,7 @@
   --sidebar-ring: oklch(0.552 0.016 285.938);
 }
 
+/* ... (โค้ดเดิมของคุณ) ... */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -120,3 +121,56 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 🔻🔻 (แก้ไข) แทนที่บล็อก @media print เดิมทั้งหมดด้วยอันนี้ 🔻🔻 */
+@media print {
+  /* 1. ซ่อน Sidebar (โดยอ้างอิงจาก [aria-label] ใน components/Sidebar.tsx) */
+  aside[aria-label="Sidebar"] {
+    display: none !important;
+  }
+
+  /* 2. ซ่อนปุ่ม และ UI อื่นๆ ที่เราไม่ต้องการพิมพ์ (class .no-print ที่อยู่ในหน้า [poNumber]) */
+  .no-print {
+    display: none !important;
+  }
+
+  /* 3. (สำคัญ) Reset layout หลัก (จาก app/(app)/layout.tsx) */
+  /* เพื่อให้ .printable-area ขยายเต็มหน้าจอ */
+  main.p-6 {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 4. จัดการให้ส่วนที่พิมพ์ ขยายเต็มหน้า */
+  .printable-area {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    background: #fff !important; /* 👈 พิมพ์บนพื้นหลังสีขาว */
+    color: #000 !important; /* 👈 พิมพ์ด้วยสีดำ */
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  
+  /* 5. บังคับให้ตารางและ Badge พิมพ์สีและเส้นขอบ */
+  table, th, td, [data-slot="badge"] {
+    border-color: #666 !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact;
+  }
+  
+  /* 6. แก้ไขสีพื้นหลัง (ถ้ามี) */
+  .bg-gray-50 {
+    background-color: #f9fafb !important;
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact;
+  }
+  .bg-gray-100 {
+     background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact;
+  }
+}
+/* 🔺🔺 (สิ้นสุดส่วนที่แก้ไข) 🔺🔺 */

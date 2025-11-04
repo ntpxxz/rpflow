@@ -172,7 +172,7 @@ model PurchaseOrderItem {
 
   itemName String // ชื่อสินค้าตอนสั่งซื้อ
   detail   String?
-
+  imageUrl String?
   requestItem   RequestItem? @relation(fields: [requestItemId], references: [id], onDelete: SetNull)
   requestItemId String?      @map("request_item_id")
 
