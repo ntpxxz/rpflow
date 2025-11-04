@@ -11,6 +11,7 @@ const links = [
   { name: "Dashboard", href: "/" },
   { name: "Request", href: "/purchase-requests/new" },
   { name: "Approval", href: "/approval" },
+  { name: "Procurement", href: "/procurement" },
   { name: "Reports", href: "/reports" },
   { name: "Settings", href: "/settings" },
 ];
@@ -34,6 +35,11 @@ const approverLinks = [
   { name: "Approval", href: "/approval" },
 ];
 
+const procurementLinks = [
+  { name: "Procurement", href: "/procurement" },
+];
+
+
 const adminLinks = [
   { name: "Settings", href: "/settings" },
 ];
@@ -46,6 +52,7 @@ export default function Sidebar({ open, onClose }: Props) {
     ...baseLinks,
     ...requesterLinks,
     ...approverLinks,   
+    ...procurementLinks,
     ...adminLinks      // (จากที่เราเคยเพิ่ม)
   ];
 
