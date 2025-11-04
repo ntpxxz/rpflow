@@ -1,80 +1,118 @@
 // app/api/purchase-orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-// (สมมติว่าคุณได้ตั้งค่า 'authOptions' จาก NextAuth แล้ว)
+import { generateNextPoNumber } from "@/lib/poNumberGenerator";
+// import { getServerSession } from "next-auth";
 // import { authOptions } from "@/app/api/auth/[...nextauth]/route"; 
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. ตรวจสอบสิทธิ์ (Authentication)
-    // 🔴 TODO: เปิดใช้งานส่วนนี้เมื่อติดตั้ง NextAuth
-    /*
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "PURCHASER" && session.user.role !== "ADMIN")) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-    const actorId = session.user.id;
-    */
-    
-    // 🔴 TODO: ลบ Hardcode นี้เมื่อเปิดใช้ Auth
-    const actorId = "clx...."; // 👈 ใส่ ID ของ User ที่เป็น Purchaser/Admin ชั่วคราว
+    // 🔴 TODO: เปิดใช้งาน Auth
+    const actorId =  process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001" // 👈 ใส่ ID ของ Purchaser/Admin ชั่วคราว
 
-    const { purchaseRequestId } = await req.json();
-    if (!purchaseRequestId) {
-      return NextResponse.json({ message: "PurchaseRequest ID is required" }, { status: 400 });
+    // 1. 🔻 (แก้ไข) รับ "requestItemIds" (Array) 🔻
+    // (นี่คือ Logic ใหม่ที่ตรงกับ Schema ที่เราแก้ไขล่าสุด)
+    const { requestItemIds } = await req.json();
+    if (!requestItemIds || !Array.isArray(requestItemIds) || requestItemIds.length === 0) {
+      return NextResponse.json({ message: "requestItemIds (Array) is required" }, { status: 400 });
     }
 
-    // 2. ใช้ Transaction เพื่อความปลอดภัย
+    const newPoNumber = await generateNextPoNumber();
+
+    // 2. 🔻 (แก้ไข) Logic การสร้าง PO ใหม่ทั้งหมด 🔻
     const newPurchaseOrder = await prisma.$transaction(async (tx) => {
       
-      // 2.1 ดึงข้อมูลใบขอซื้อและสินค้า
-      const request = await tx.purchaseRequest.findUnique({
-        where: { id: purchaseRequestId },
-        include: { items: true },
+      // 2.1 ดึง RequestItems ทั้งหมดที่ถูกเลือก และยังสั่งไม่ครบ
+      const itemsToOrder = await tx.requestItem.findMany({
+        where: {
+          id: { in: requestItemIds },
+          request: {
+            status: "approved" // 👈 (lowercase) สำหรับ RequestStatus
+          },
+          quantity: {
+            gt: prisma.requestItem.fields.quantityOrdered 
+          }
+        },
+        include: {
+          request: true 
+        }
       });
 
-      // 2.2 ตรวจสอบสถานะ
-      if (!request) throw new Error("Request not found");
-      if (request.status !== "Approved") {
-        throw new Error("Request is not approved yet");
+      if (itemsToOrder.length === 0) {
+        throw new Error("No valid items to order. They might be already ordered or not approved.");
       }
-
-      // 2.3 สร้าง PO (Header)
+      
+      // 2.2 สร้าง PO (Header)
       const po = await tx.purchaseOrder.create({
         data: {
-          poNumber: `PO-${Date.now()}`, // TODO: สร้างเลข PO ที่ดีกว่านี้
-          status: "Sent", // (สมมติว่าสร้างแล้วส่งเลย)
-          requestId: request.id,
+          poNumber: newPoNumber,
+          
+          // 🔻🔻 --- (แก้ไข Bug ตรงนี้) --- 🔻🔻
+          // POStatus ใช้ PascalCase (ตาม schema.prisma)
+          status: "Sent", 
+          // 🔺🔺 --- (สิ้นสุดการแก้ไข Bug) --- 🔺🔺
+          
           sentAt: new Date(),
+          // (ลบ requestId ออก เพราะ Schema ใหม่ไม่มีแล้ว)
         },
       });
 
-      // 2.4 คัดลอกรายการสินค้าจาก Request ไปยัง PO
-      await tx.purchaseOrderItem.createMany({
-        data: request.items.map((item) => ({
-          poId: po.id,
-          itemMasterId: item.itemMasterId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-      });
+      // 2.3 สร้าง PO Items (วนลูป)
+      for (const item of itemsToOrder) {
+        const quantityToOrder = item.quantity - item.quantityOrdered;
 
-      // 2.5 อัปเดตสถานะใบขอซื้อเดิมเป็น "สั่งแล้ว"
-      await tx.purchaseRequest.update({
-        where: { id: request.id },
-        data: { status: "Ordered" },
-      });
+        await tx.purchaseOrderItem.create({
+          data: {
+            poId: po.id,
+            itemName: item.itemName,
+            detail: item.detail,
+            quantity: quantityToOrder,
+            unitPrice: item.unitPrice,
+            requestItemId: item.id, // 👈 เชื่อมกลับไปที่ RequestItem
+          },
+        });
 
-      // 2.6 สร้าง History
-      await tx.requestHistory.create({
-        data: {
-          requestId: request.id,
-          actorId: actorId,
-          action: "PO_CREATED",
-          details: `Created Purchase Order ${po.poNumber}`,
-        },
-      });
+        // 2.4 อัปเดต RequestItem ต้นทาง
+        await tx.requestItem.update({
+          where: { id: item.id },
+          data: {
+            quantityOrdered: {
+              increment: quantityToOrder 
+            }
+          }
+        });
+      }
+      
+      // 2.5 อัปเดตสถานะ PR แม่
+      const relatedRequestIds = [...new Set(itemsToOrder.map(item => item.requestId))];
+      
+      for (const reqId of relatedRequestIds) {
+         const pendingItems = await tx.requestItem.count({
+            where: {
+              requestId: reqId,
+              quantity: {
+                gt: tx.requestItem.fields.quantityOrdered
+              }
+            }
+         });
+
+         if (pendingItems === 0) {
+            await tx.purchaseRequest.update({
+              where: { id: reqId },
+              data: { status: "ordered" } // 👈 (lowercase) สำหรับ RequestStatus
+            });
+         }
+         
+         // 2.6 สร้าง History
+         await tx.requestHistory.create({
+           data: {
+             requestId: reqId,
+             actorId: actorId,
+             action: "PO_CREATED",
+             details: `Items ordered on Purchase Order ${po.poNumber}`,
+           },
+         });
+      }
 
       return po;
     });
@@ -82,8 +120,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newPurchaseOrder, { status: 201 });
 
   } catch (error) {
-    console.error(error);
+    console.error("[PURCHASE_ORDER_POST]", error);
     const errorMessage = error instanceof Error ? error.message : "Internal Error";
+    // (เพิ่มการดักจับ Error P2002 เผื่อไว้)
+    if ((error as any).code === 'P2002') {
+         return NextResponse.json({ message: "Unique constraint violation. Check poNumber logic or other unique fields.", code: "P2002" }, { status: 409 });
+    }
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }

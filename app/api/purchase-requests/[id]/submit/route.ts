@@ -23,11 +23,7 @@ export async function PATCH(
 
     await prisma.$transaction(async (tx) => {
       // 1. อัปเดตสถานะใบ PR เป็น "กำลังรออนุมัติ"
-      await tx.purchaseRequest.update({
-        where: { id: requestId },
-        data: { status: "Approving" },
-      });
-
+  
       // 2. สร้างขั้นตอนการอนุมัติ (Approval Steps)
       await tx.approvalStep.createMany({
         data: [
@@ -35,7 +31,7 @@ export async function PATCH(
             requestId: requestId,
             stepName: "Manager Approval", // ขั้นตอนที่ 1
             approverId: managerApproverId, // 👈 คนที่ต้องอนุมัติ
-            status: "Pending",
+            status: "pending",
           },
           // (ถ้ามีขั้นตอนที่ 2 เช่น Finance ก็เพิ่มตรงนี้)
           // {
