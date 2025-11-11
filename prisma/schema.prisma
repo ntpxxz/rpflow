@@ -165,6 +165,7 @@ model PurchaseOrderItem {
   id        String  @id @default(cuid())
   quantity  Int
   unitPrice Decimal @map("unit_price") // ราคาที่ตกลงจริง
+  quotationNumber String?
 
   // ความสัมพันธ์
   po     PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)

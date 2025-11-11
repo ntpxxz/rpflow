@@ -173,4 +173,17 @@
     print-color-adjust: exact;
   }
 }
-/* 🔺🔺 (สิ้นสุดส่วนที่แก้ไข) 🔺🔺 */
+
+/* Override specific problematic classes */
+.bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+.bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+.text-gray-800 {
+  color: #1f2937 !important;
+}
