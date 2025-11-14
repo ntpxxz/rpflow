@@ -1,6 +1,6 @@
 // app/(app)/purchase-orders/[poNumber]/page.tsx
 "use client";
-
+;
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PurchaseOrder, PurchaseOrderItem } from "@prisma/client";
@@ -27,9 +27,6 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { Loader2, Printer, ChevronLeft, Send } from "lucide-react";
 import Image from "next/image";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-
 // Define the types for your PO data
 type ExtendedPurchaseOrderItem = PurchaseOrderItem & {
   imageUrl?: string; // Make sure imageUrl is part of the type
@@ -53,6 +50,10 @@ export default function PurchaseOrderDetailPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [ccEmail, setCcEmail] = useState("");
+
+  // state for PDF preview
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (poNumber) {
@@ -78,67 +79,67 @@ export default function PurchaseOrderDetailPage() {
   }, [poNumber]);
 
   // Function to generate PDF and send email
-  const handleSendEmail = async () => {
-    if (!recipientEmail) {
-      alert("Please enter a recipient email address.");
-      return;
-    }
-
-    // Find the printable area
-    const printableElement = document.querySelector(
-      ".printable-area"
-    ) as HTMLElement;
-    if (!printableElement) {
-      alert("Error: Could not find printable area.");
-      return;
-    }
-
-    setIsSendingEmail(true);
+    const handleSendEmail = async () => {
+      if (!recipientEmail) {
+        alert("Please enter a recipient email address.");
+        return;
+      }    
+      setIsSendingEmail(true);    
+      try {    
+        // 3. Send to our API (เหมือนเดิม)
+        const res = await fetch(`/api/purchase-orders/${poNumber}/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipientEmail: recipientEmail,
+            ccEmail: ccEmail || null,
+          }),
+        });
+    
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || "Failed to send email");
+        }
+    
+        alert("Email sent successfully!");
+        setIsModalOpen(false);
+        setRecipientEmail("");
+        setCcEmail("");
+      } catch (err) {
+        console.error(err);
+        // (แก้ไข) เปลี่ยน alert ให้อ่านง่ายขึ้น
+        alert(`Failed to send email: ${err.message}`);
+      } finally {
+        setIsSendingEmail(false);
+      }       
+  }
+  // Function to generate PDF document
+  const handlePrintOrSavePDF = async () => {
+    setIsGeneratingPdf(true);
 
     try {
-      // 1. Use html2canvas to capture the element
-      const canvas = await html2canvas(printableElement, { scale: 2 });
-
-      // 2. Use jspdf to create a PDF
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-
-      // 3. Get the PDF as a base64 string (strip the data prefix)
-      const pdfBase64 = pdf.output("datauristring").split(",")[1];
-
-      // 4. Send to our API
-      const res = await fetch(`/api/purchase-orders/${poNumber}/send`, {
+      // 1. เรียก API "preview" (POST request)
+      const res = await fetch(`/api/purchase-orders/${poNumber}/preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipientEmail: recipientEmail,
-          pdfBase64: pdfBase64,
-        }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to send email");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to generate PDF");
       }
 
-      alert("Email sent successfully!");
-      setIsModalOpen(false);
-      setRecipientEmail("");
+      // 2. แปลง PDF ที่ได้กลับมาเป็น Blob
+      const pdfBlob = await res.blob();
+      
+      // 3. สร้าง URL ชั่วคราวสำหรับ <iframe
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url);
+      
     } catch (err) {
-      console.error(err);
-      alert(`Failed to send email: ${err.message}`);
+      console.error("Error generating PDF:", err);
+      alert(`Failed to generate PDF: ${err.message}`);
     } finally {
-      setIsSendingEmail(false);
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -160,7 +161,7 @@ export default function PurchaseOrderDetailPage() {
   // const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => { ... };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-xxl mx-auto">
       {/* --- Button Controls (Non-Printable) --- */}
       <div className="no-print flex justify-between items-center">
         <Button variant="outline" onClick={() => router.back()}>
@@ -172,9 +173,16 @@ export default function PurchaseOrderDetailPage() {
             <Send className="h-4 w-4 mr-2" />
             Send via Email
           </Button>
-          <Button onClick={() => window.print()}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print / Save as PDF
+          <Button
+            onClick={handlePrintOrSavePDF}
+            disabled={isGeneratingPdf} 
+          >
+            {isGeneratingPdf ? ( 
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4 mr-1" />
+            )}
+            Print to PDF
           </Button>
         </div>
       </div>
@@ -284,16 +292,13 @@ export default function PurchaseOrderDetailPage() {
           </div>
         </footer>
 
-        <div className="mt-12 text-center text-xs text-gray-500">
-          Thank you for your business!
-        </div>
       </div>
 
       {/* --- Email Send Modal --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Send PO via Email</DialogTitle>
+            <DialogTitle>Send PO Email</DialogTitle>
             <DialogDescription>
               Enter the recipient's email address. The PO will be attached as a
               PDF.
@@ -301,8 +306,8 @@ export default function PurchaseOrderDetailPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
+              <Label htmlFor="email" className="text-left">
+                Recipient:
               </Label>
               <Input
                 id="email"
@@ -311,6 +316,20 @@ export default function PurchaseOrderDetailPage() {
                 className="col-span-3"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
+              />
+            </div>
+            {/*ช่อง CC*/}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cc-email" className="text-right">
+                CC:
+              </Label>
+              <Input
+                id="cc-email"
+                type="email"
+                placeholder="(Optional) manager@company.com"
+                className="col-span-3"
+                value={ccEmail}
+                onChange={(e) => setCcEmail(e.target.value)}
               />
             </div>
           </div>

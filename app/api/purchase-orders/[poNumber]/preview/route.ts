@@ -10,8 +10,6 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 
 // ฟังก์ชันแปลง file path เป็น base64 data URL
 async function convertImageToBase64(imagePath: string): Promise<string | null> {
@@ -48,16 +46,6 @@ async function convertImageToBase64(imagePath: string): Promise<string | null> {
     return null;
   }
 }
-// ฟังก์ชันดึงชื่อจากอีเมล
-function getNameFromEmail(email: string): string | null {
-  const match = email.match(/^([^@]+)/);  
-  if (match) {
-    const namePart = match[1];
-    const name = namePart.replace(/[._]/g, ' '); // แทนที่ . และ _ ด้วย space
-    return name.charAt(0).toUpperCase() + name.slice(1).toUpperCase(); 
-  } 
-  return null;
-}
 
 // สร้าง HTML template
 function generatePOHtml(po: any): string {
@@ -65,7 +53,7 @@ function generatePOHtml(po: any): string {
     (sum: number, item: any) => sum + item.quantity * Number(item.unitPrice),
     0
   );
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -279,14 +267,7 @@ export async function POST(
   { params }: { params: Promise<{ poNumber: string }> }
 ) {
   const { poNumber } = await params;
-  const { recipientEmail, ccEmails } = await req.json();
 
-  if (!recipientEmail) {
-    return NextResponse.json(
-      { message: "Recipient email is required" },
-      { status: 400 }
-    );
-  }
 
   try {
     console.log(`\n📦 Processing PO: ${poNumber}`);
@@ -388,59 +369,22 @@ export async function POST(
     await browser.close();
     console.log(`✅ PDF generated successfully`);
 
-    // 5. ส่ง Email
-    console.log(`\n📧 Sending email to: ${recipientEmail}`);
+    console.log(`\n✅ Sending PDF buffer to client...`);
     
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD,
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${poNumber}.pdf"`,
       },
     });
 
-    const extractedName = getNameFromEmail(recipientEmail);
-   
-    const greetingTH = extractedName ? `เรียน คุณ ${extractedName},` : 'เรียน ผู้จำหน่าย,';
-
-    //ส่ง Email
-
-    const mailOptions = {
-      from: `${GMAIL_USER}`,
-      to: recipientEmail,
-      cc: ccEmails && ccEmails.length > 0 ? ccEmails : undefined,
-      subject: `[ส่งใบสั่งซื้อ] IOT ${poNumber} - IOT Section`,
-         
-      html: `
-        <p>${greetingTH}</p>
-        <p>ทางแผนก IOT ขอสั่งซื้อสินค้าตามใบสั่งซื้อ (IOT PO) เลขที่ <strong>${poNumber}</strong></p>
-        <p>กรุณาตรวจสอบรายละเอียดตามไฟล์ PDF ที่แนบมานี้</p>
-        <br>
-        <p>รบกวนท่านโปรดยืนยันการได้รับเอกสารฉบับนี้ และแจ้งกำหนดการจัดส่งสินค้าให้ทางเราทราบด้วยครับ</p>
-        <p>หากมีข้อสงสัยประการใด สามารถติดต่อกลับได้ที่อีเมลนี้</p>
-        <br>
-        <p>ขอแสดงความนับถือ,<br>
-        แผนก IOT</p>
-        <p>Tel: 2472</p>
-      `,
-      attachments: [
-        {
-          filename: `${poNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: "application/pdf",
-        },
-      ],
-    };
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully!\n`);
-    
-    return NextResponse.json({ message: "Email sent successfully!" });
-
   } catch (error) {
-    console.error("\n❌ [PO_SEND_GMAIL_ERROR]", error);
+    // (แก้ไข) ปรับ Error log
+    console.error("\n❌ [PO_PREVIEW_ERROR]", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { message: "Failed to send email via Gmail", error: errorMessage },
+      { message: "Failed to generate PDF preview", error: errorMessage },
       { status: 500 }
     );
   }

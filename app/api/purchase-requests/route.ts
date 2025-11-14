@@ -5,7 +5,7 @@ import { z } from "zod";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { generateNextRequestId } from "@/lib/idGenerator";
-
+import nodemailer from "nodemailer";
 // (Zod Schemas - ถูกต้อง)
 const itemSchema = z.object({
   itemName: z.string().min(1, "Item name is required"), 
@@ -17,7 +17,84 @@ type ParsedItem = z.infer<typeof itemSchema>;
 const itemsArraySchema = z.array(itemSchema);
 const requestTypeEnum = z.enum(["NORMAL", "URGENT", "PROJECT"]);
 
-// --- GET Function (โค้ดนี้ถูกต้อง) ---
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD,
+  },
+});
+
+function generateApprovalEmailHtml(
+  newRequest: { id: string; requesterName: string },
+  total: number,
+  items: (ParsedItem & { imageUrl?: string })[],
+  requestType: "NORMAL" | "URGENT" | "PROJECT"
+): { subject: string; html: string } {
+  let typeStyles = "";
+  let typeHeaderText = "";
+  let subjectPrefix = "";
+
+  switch (requestType) {
+    case "URGENT":
+      subjectPrefix = "[URGENT] ";
+      typeHeaderText = "URGENT REQUEST";
+      typeStyles =
+        "background-color: #FEE2E2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
+      break;
+    case "PROJECT":
+      subjectPrefix = "[PROJECT] ";
+      typeHeaderText = "PROJECT REQUEST";
+      typeStyles =
+        "background-color: #DBEAFE; border: 1px solid #93C5FD; color: #1E40AF; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
+      break;
+    default: // NORMAL
+      subjectPrefix = "[New PR] ";
+      typeHeaderText = "New Purchase Request";
+      typeStyles =
+        "background-color: #F3F4F6; border: 1px solid #E5E7EB; color: #374151; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
+  }
+  const reviewUrl = `${
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  }/purchase-requests/${newRequest.id}`; 
+  const itemHtml = items
+    .map(
+      (item) => `
+    <li>
+      ${item.itemName} (Qty: ${item.quantity}) - THB ${(
+        item.unitPrice * item.quantity
+      ).toFixed(2)}
+    </li>
+  `
+    )
+    .join("");
+
+    const subject = `${subjectPrefix}ใบขอซื้อใหม่รออนุมัติ - ${newRequest.requesterName}`;  const html = `
+    <p>เรียน Approver,</p>
+    <p>มีใบขอซื้อใหม่ (PR) รอการอนุมัติจากคุณ</p>
+    <p><strong>ประเภท:</strong> ${requestType}</p>
+    <p><strong>ผู้ขอ:</strong> ${newRequest.requesterName}</p>
+    <p><strong>มูลค่ารวม:</strong> THB ${total.toFixed(2)}</p>
+    <br>
+    <strong>รายการ:</strong>
+    <ul>
+      ${itemHtml}
+    </ul>
+    <br>
+    <p>กรุณาคลิกลิงก์ด้านล่างเพื่อตรวจสอบและอนุมัติ:</p>
+    <a href="${reviewUrl}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+      ตรวจสอบใบขอซื้อ
+    </a>
+    <br>
+    <p>ขอบคุณครับ</p>
+    <p>ขอแสดงความนับถือ</P>
+  `;
+  return {subject, html}
+}
+// 
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -47,11 +124,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// --- POST Function (แก้ไข) ---
 export async function POST(req: Request) {
   try {
-    //
-    // 1. 🔻🔻 (เพิ่มโค้ดส่วนที่หายไป) 🔻🔻
     // --- Auth - Test User IDs ---
     const userId = process.env.TEST_REQUESTER_ID; 
     if (!userId) { 
@@ -63,9 +137,6 @@ export async function POST(req: Request) {
       console.error("Error: TEST_APPROVER_ID is not set.");
       return new NextResponse("Internal Server Error: Missing approver configuration", { status: 500 });
     }
-    // 🔺🔺 (สิ้นสุดส่วนที่เพิ่ม) 🔺🔺
-    //
-    
     // --- Parse FormData ---
     const formData = await req.formData();
     const requesterName = formData.get("requesterName") as string;
@@ -156,6 +227,33 @@ export async function POST(req: Request) {
       
       return pr;
     });
+    try {
+      // ⚠️ TODO: เปลี่ยนอีเมลนี้เป็นอีเมล Approver ตัวจริงของคุณ
+      const APPROVER_EMAIL = "nattapon.m@minebea.co.th"; //
+
+      const { subject, html } = generateApprovalEmailHtml(
+        purchaseRequest,
+        totalAmount,
+        itemsWithData,
+        validatedRequestType.data
+      );
+
+      console.log(`\n📧 Sending approval email to: ${APPROVER_EMAIL}`);
+
+      const mailOptions = {
+        from: `Purchase Request System <${GMAIL_USER}>`,
+        to: APPROVER_EMAIL, 
+        subject: subject, 
+        html: html, 
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log("✅ Approval email sent!");
+      
+    } catch (emailError) {
+      // ❗️สำคัญ: ถ้าส่งอีเมลไม่สำเร็จ... อย่าทำให้ Request พัง
+      console.error("❌ [EMAIL_ERROR] Failed to send approval email:", emailError);
+    }
 
     return NextResponse.json(purchaseRequest, { status: 201 });
 

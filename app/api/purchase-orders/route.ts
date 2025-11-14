@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
   try {
     const actorId = process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001";
 
-    // 1. 🔻 (แก้ไข) รับ "items" (Array of objects) แทน "requestItemIds" 🔻
-    const { items } = await req.json(); // 👈 เปลี่ยนจาก { requestItemIds }
+    // 1.รับ "items" (Array of objects) แทน "requestItemIds" 🔻
+    const { items } = await req.json(); //{ requestItemIds }
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { message: "items (Array of {id, quotationNumber}) is required" },
@@ -36,10 +36,10 @@ export async function POST(req: NextRequest) {
 
     const newPurchaseOrder = await prisma.$transaction(async (tx) => {
       
-      // 2.1 ดึง RequestItems (ใช้ requestItemIds ที่เราเพิ่งสร้าง)
+      // 2.1 ดึง RequestItems
       const itemsToOrder = await tx.requestItem.findMany({
         where: {
-          id: { in: requestItemIds }, // 👈 (ใช้ Array ที่สร้างใหม่)
+          id: { in: requestItemIds }, 
           request: {
             status: "approved",
           },
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       for (const item of itemsToOrder) {
         const quantityToOrder = item.quantity - item.quantityOrdered;
 
-        // 3. 🔻 (แก้ไข) เพิ่ม "quotationNumber" ตอนสร้าง PO Item 🔻
+        // 3.เพิ่ม "quotationNumber" ตอนสร้าง PO Item 🔻
         await tx.purchaseOrderItem.create({
           data: {
             poId: po.id,
