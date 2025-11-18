@@ -81,7 +81,7 @@ export default function Purchase() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-
+  const [tempDate, setTempDate] = useState<string>("");
   // (Effect ต่างๆ... fetchItems, handleClickOutside... เหมือนเดิม)
   useEffect(() => {
     if (itemSearchTerm.length < 2) {
@@ -300,8 +300,24 @@ export default function Purchase() {
                   <SelectItem value="URGENT">Urgent</SelectItem>
                   <SelectItem value="PROJECT">Project</SelectItem>
                 </SelectContent>
-              </Select>
-            </div>          
+              </Select>              
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="due-date">
+                Due Date <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="due-date"
+                type="date"
+                value={tempDate}
+                onChange={(e) => {
+                  setTempDate(e.target.value);
+                  setDueDate(new Date(e.target.value));
+                }}
+                min={new Date().toISOString().split("T")[0]}
+                disabled={isSubmitting}
+              />
+            </div>             
           </div>
         </CardContent>
       </Card>

@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     const requesterName = formData.get("requesterName") as string;
     const requestType = formData.get("requestType") as string;
     const itemsJson = formData.get("items") as string;
-
+    const dueDate = formData.get("dueDate") as string | null;
     // --- Validation ---
     if (!requesterName || !requestType || !itemsJson) { 
       return new NextResponse(JSON.stringify({ message: "Missing required fields" }), { status: 400 });
@@ -151,6 +151,18 @@ export async function POST(req: Request) {
     if (!validatedRequestType.success) { 
       return new NextResponse(JSON.stringify({ message: "Invalid request type" }), { status: 400 });
     }
+    let finalDueDate: Date;
+    if (validatedRequestType.data === "NORMAL") {
+      finalDueDate = new Date();
+      finalDueDate.setDate(finalDueDate.getDate() + 7); // 👈 Auto 7 วัน
+    } else {
+      // (ถ้าเป็น URGENT หรือ PROJECT)
+      if (!dueDate) {
+        return new NextResponse(JSON.stringify({ message: "Due date is required for Urgent/Project" }), { status: 400 });
+      }
+      finalDueDate = new Date(dueDate);
+    }
+
     let parsedItems: ParsedItem[];
     try {
       const rawItems = JSON.parse(itemsJson);
@@ -191,7 +203,7 @@ export async function POST(req: Request) {
           type: validatedRequestType.data,
           status: "pending", // (lowercase ถูกต้อง)
           totalAmount: totalAmount, 
-          
+          dueDate: finalDueDate,
           items: {
             create: itemsWithData.map(item => ({
               itemName: item.itemName,         

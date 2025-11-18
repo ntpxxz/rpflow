@@ -2,7 +2,73 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client"; // 👈 1. Import Type สำหรับ Transaction
+import nodemailer from "nodemailer";
 
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD,
+  },
+});
+
+//Create Email Template for Requester
+/**
+ * Generates the email HTML for the requester after an action.
+ */
+function generateStatusEmailHtml(
+  request: { id: string },
+  status: "APPROVED" | "REJECTED",
+  comment: string | null
+): { subject: string; html: string } {
+  
+  const isApproved = status === "APPROVED";
+  
+  // Set Subject
+  const subject = `[PR Status Update] Your request ${request.id} has been ${status.toLowerCase()}`;
+  
+  // Set Link
+  const viewUrl = `${
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  }/purchase-requests/${request.id}`;
+
+  // Set styles based on status
+  let statusBoxStyle = isApproved
+    ? "background-color: #D1FAE5; color: #065F46; border: 1px solid #6EE7B7;"
+    : "background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5;";
+  statusBoxStyle += " padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
+
+  const html = `
+    <p>Dear Requester,</p>
+    <p>Your Purchase Request (PR) <strong>${request.id}</strong> has been updated.</p>
+    
+    <div style="${statusBoxStyle}">
+      STATUS: ${status}
+    </div>
+
+    ${comment ? `<p><strong>Approver's Comment:</strong> ${comment}</p>` : ""}
+
+    ${
+      isApproved
+        ? "<p>Your request has been fully approved and is now being processed by Procurement.</p>"
+        : "<p>Your request was rejected. Please review the comment and contact your manager if necessary.</p>"
+    }
+    
+    <br>
+    <p>You can view the request details here:</p>
+    <a href="${viewUrl}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+      View Request
+    </a>
+    <br>
+    <p>Thank you,</p>
+    <p>The System</p>
+  `;
+  
+  return { subject, html };
+}
 // GET: ดึงรายการทั้งหมด (ทั้ง Pending และ Done)
 export async function GET(req: NextRequest) {
   try {
@@ -38,81 +104,75 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const { approvalStepId, newStatus, comment, actorId } = await req.json();
-    // actorId คือ ID ของคนที่กดปุ่ม (ควรมาจาก Auth)
 
     if (!approvalStepId || !newStatus || !actorId) {
-      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
+      // ... (error handling)
     }
 
     const newStatusLower = newStatus.toLowerCase();
     if (newStatusLower !== "approved" && newStatusLower !== "rejected") {
-      return NextResponse.json({ message: "Invalid status value" }, { status: 400 });
+      // ... (error handling)
     }
-    // เราใช้ $transaction เพื่อให้แน่ใจว่าทุกอย่างสำเร็จพร้อมกัน
-    await prisma.$transaction(async (tx) => {
+
+    // 4. 🔻 (MODIFIED) Store the result of the transaction
+    const updatedRequest = await prisma.$transaction(async (tx) => {
       
-      // 1. อัปเดตขั้นตอน (ApprovalStep)
+      // 1. Update Step
       const updatedStep = await tx.approvalStep.update({
         where: { id: approvalStepId },
         data: {
-          status: newStatusLower, 
+          status: newStatusLower,
           comment: comment,
           approvedAt: newStatusLower === "approved" ? new Date() : null,
         },
       });
 
-      // 2. สร้าง History
+      // 2. Create History
       await tx.requestHistory.create({
         data: {
           requestId: updatedStep.requestId,
           actorId: actorId,
-          action: newStatus.toUpperCase(), // "APPROVED" หรือ "REJECTED"
+          action: newStatus.toUpperCase(),
           details: `Step "${updatedStep.stepName}" by ${actorId}. Comment: ${comment || ''}`,
         },
       });
 
-      // --- 3. (ส่วนที่แก้ไข) ตรวจสอบและอัปเดตใบ PR หลัก ---
+      // 3. Update main PR (Budget check logic)
+      let finalRequest; // 👈 (NEW) To store the final updated PR
 
       if (newStatusLower === "rejected") {
-        // 3.1 ถ้ามีคนปฏิเสธ: ให้ Reject ใบ PR หลักทันที
-        await tx.purchaseRequest.update({
+        finalRequest = await tx.purchaseRequest.update({
           where: { id: updatedStep.requestId },
           data: { status: "rejected" },
+          // 5. 🔻 (MODIFIED) Include the user to get their email
+          include: { user: { select: { email: true, name: true } } }
         });
 
       } else if (newStatusLower === "approved") {
-        // 3.2 ถ้าอนุมัติ: ให้เช็กว่ามี step อื่นที่ยัง Pending หรือไม่
         const pendingSteps = await tx.approvalStep.count({
           where: {
             requestId: updatedStep.requestId,
-            status: "pending", 
+            status: "pending",
           },
         });
 
-        // 🔻🔻 --- 4. (ส่วนที่เพิ่มเข้ามาตาม Flowchart) --- 🔻🔻
         if (pendingSteps === 0) {
-          // 4.1 ถ้าไม่มี (pendingSteps = 0) หมายความว่าอนุมัติครบทุกขั้นตอนแล้ว
-          // ...ให้ทำการ "ตรวจสอบงบประมาณ" (Budget Check) ต่อ...
-          
-          // 4.2 ดึงยอดเงินรวมของใบ PR นี้
           const request = await tx.purchaseRequest.findUnique({
              where: { id: updatedStep.requestId },
              select: { totalAmount: true }
           });
           const totalAmount = Number(request?.totalAmount) || 0;
 
-          // 4.3 (จำลอง) เรียกฟังก์ชันตรวจสอบและจองงบประมาณ
-          // เราส่ง `tx` เข้าไปด้วย เพื่อให้การจองงบอยู่ใน Transaction เดียวกัน
           const isBudgetOk = await checkAndReserveBudget(tx, updatedStep.requestId, totalAmount);
 
           if (isBudgetOk) {
-            // 4.4 ถ้า งบ OK: อัปเดตใบ PR หลักเป็น "Approved"
-            // (สถานะนี้จะทำให้แผนกจัดซื้อ (Procurement) เห็นในคิวงาน)
-            await tx.purchaseRequest.update({
+            finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
               data: { status: "approved" },
+              // 5. 🔻 (MODIFIED) Include the user to get their email
+              include: { user: { select: { email: true, name: true } } }
             });
-            
+
             // (บันทึก History ว่า Budget OK)
             await tx.requestHistory.create({
               data: {
@@ -125,9 +185,10 @@ export async function PATCH(req: NextRequest) {
 
           } else {
             // 4.5 ถ้า งบไม่พอ (Budget OK? -> No): อัปเดตใบ PR หลักเป็น "Rejected"
-            await tx.purchaseRequest.update({
+              finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
               data: { status: "rejected" }, 
+              include: { user: { select: { email: true, name: true } } }
             });
             
             // (บันทึก History ว่า งบไม่พอ)
@@ -139,12 +200,48 @@ export async function PATCH(req: NextRequest) {
                 details: `Budget check failed. Amount ${totalAmount} exceeds available budget.`,
               },
             });
-          }
+          }          
         }
-        // (ถ้ายังมี pendingSteps > 0 ก็ไม่ต้องทำอะไร สถานะ PR จะยังคงเป็น "Approving")
-        // 🔺🔺 --- (สิ้นสุดส่วนที่เพิ่มเข้ามา) --- 🔺🔺
       }
-    }); // --- สิ้นสุด Transaction ---
+
+      // 6. 🔻 (NEW) If no final action, just get the current PR
+      if (!finalRequest) {
+        finalRequest = await tx.purchaseRequest.findUnique({
+          where: { id: updatedStep.requestId },
+          include: { user: { select: { email: true, name: true } } }
+        });
+      }
+      
+      return finalRequest; // 👈 (NEW) Return the final request from the transaction
+    });// 7. 🔻 (NEW) Send Email Alert (AFTER the transaction)
+    if (updatedRequest && (updatedRequest.status === "approved" || updatedRequest.status === "rejected")) {
+      try {
+        const requesterEmail = "nattapon.m@minebea.co.th";
+        
+        if (requesterEmail) {
+          const { subject, html } = generateStatusEmailHtml(
+            updatedRequest,
+            updatedRequest.status === "approved" ? "APPROVED" : "REJECTED",
+            comment
+          );
+          
+          console.log(`\n📧 Sending status update email to: ${requesterEmail}`);
+          await transporter.sendMail({
+            from: `Purchase Request System <${GMAIL_USER}>`,
+            to: requesterEmail,
+            subject: subject,
+            html: html
+          });
+          console.log("✅ Status update email sent!");
+
+        } else {
+          console.warn(`[Email Warn] No email found for requester on PR: ${updatedRequest.id}`);
+        }
+      } catch (emailError) {
+        // Log the error but don't fail the API, the DB update was successful
+        console.error("❌ [EMAIL_ERROR] Failed to send status update email:", emailError);
+      }
+    }
 
     return NextResponse.json({ message: "Status updated" });
 
@@ -153,7 +250,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: "Something went wrong" }, { status: 500 });
   }
 }
-
 /**
  * 🔻🔻 (ฟังก์ชันใหม่ที่ต้องสร้าง) 🔻🔻
  * ฟังก์ชันจำลองสำหรับตรวจสอบและจองงบประมาณ
@@ -161,6 +257,7 @@ export async function PATCH(req: NextRequest) {
  * @param requestId - ID ของใบ PR
  * @param totalAmount - ยอดเงินที่ขอ
  * @returns Promise<boolean> - คืนค่า true ถ้างบพอ, false ถ้างบไม่พอ
+ * 
  */
 async function checkAndReserveBudget(
   tx: Prisma.TransactionClient,
