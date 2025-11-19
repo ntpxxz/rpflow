@@ -7,76 +7,65 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 
-const links = [
-  { name: "Dashboard", href: "/" },
-  { name: "Request", href: "/purchase-requests/new" },
-  { name: "Approval", href: "/approval" },
-  { name: "Procurement", href: "/procurement" },
-  { name: "Reports", href: "/reports" },
-  { name: "Settings", href: "/settings" },
-];
+// 1. 👈 Import ไอคอนจาก lucide-react
+import {
+  LayoutDashboard,
+  FilePlus,
+  CheckSquare,
+  ShoppingCart,
+  PieChart,
+  Settings,
+  ClipboardList,
+} from "lucide-react";
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
+
+// 2. 👈 เพิ่ม 'icon' property ให้กับ links
 const baseLinks = [
-  { name: "Dashboard", href: "/" },
-  { name: "Reports", href: "/reports" },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Reports", href: "/reports", icon: PieChart },
 ];
 
-// 2. สร้าง Links ตาม Role
 const requesterLinks = [
-  { name: "Request", href: "/purchase-requests/new" },
-  
+  { name: "Request", href: "/purchase-requests/new", icon: FilePlus },
 ];
 
 const approverLinks = [
-  { name: "Approval", href: "/approval" },
+  { name: "Approval", href: "/approval", icon: CheckSquare },
 ];
 
 const procurementLinks = [
-  { name: "Procurement", href: "/procurement" },
-  { name: "PO List", href: "/purchase-orders" }, 
+  { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+  { name: "PO List", href: "/purchase-orders", icon: ClipboardList },
 ];
-
-
 
 const adminLinks = [
-  { name: "Settings", href: "/settings" },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
+
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
-  const { data: session } = useSession(); // 👈 3. ดึง Session
+  const { data: session } = useSession();
 
-  // 4. รวม Links ทั้งหมดตามสิทธิ์
   let links = [
     ...baseLinks,
     ...requesterLinks,
-    ...approverLinks,   
+    ...approverLinks,
     ...procurementLinks,
-   
-    ...adminLinks      // (จากที่เราเคยเพิ่ม)
+    ...adminLinks,
   ];
 
-  {/*For Build*/}
-  {/*let links = [...baseLinks];
-  if (session?.user.role === "REQUESTER") {
-    links = [...links, ...requesterLinks];
-  }
-  if (session?.user.role === "APPROVER") {
-    links = [...links, ...approverLinks];
-  }
-  if (session?.user.role === "ADMIN") {
-    links = [...links, ...requesterLinks, ...approverLinks, ...adminLinks];
-  }*/}
+  // ... (ส่วน Logic for build ไม่ต้องแก้ไข) ...
 
   return (
     <>
-      {/* Overlay for mobile when sidebar open */}
+      {/* ... (Overlay for mobile คงเดิม) ... */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity",
+          "fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity no-print",
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -84,37 +73,47 @@ export default function Sidebar({ open, onClose }: Props) {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-64 bg-white dark:bg-zinc-950 border-r border-gray-200 dark:border-zinc-800 z-50 transform transition-transform",
+          "fixed left-0 top-0 h-full w-64 bg-slate-900 text-white border-r border-slate-700 z-50 transform transition-transform no-print",
           open ? "translate-x-0" : "-translate-x-full",
           "md:translate-x-0 md:static md:inset-auto"
         )}
         aria-label="Sidebar"
       >
         <div className="h-full flex flex-col">
-          <div className="px-4 py-4 border-b dark:border-zinc-800">
-            <div className="text-lg font-semibold text-blue-600">Purchase flow</div>
+          {/* ... (Logo คงเดิม) ... */}
+          <div className="px-4 py-4 border-b border-slate-700">
+            <div className="text-lg font-semibold text-white">Purchase flow</div>
           </div>
 
           <nav className="p-4 space-y-1">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={onClose}
-                className={cn(
-                  buttonVariants({ 
-                    variant: pathname === l.href ? "secondary" : "ghost" 
-                  }),
-                  "w-full justify-start text-sm font-medium"
-                )}
-              >
-                {l.name}
-              </Link>
-            ))}
+            {links.map((l) => {
+              // 3. 👈 ดึง Icon component ออกมาจาก link
+              const Icon = l.icon; 
+              
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={onClose}
+                  className={cn(
+                    buttonVariants({
+                      variant: "ghost",
+                    }),
+                    "w-full justify-start text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-700",
+                    pathname === l.href && "bg-slate-700 text-white"
+                  )}
+                >
+                  {/* 4. 👈 เพิ่มไอคอนที่นี่ */}
+                  <Icon className="mr-3 h-5 w-5" /> 
+                  {l.name}
+                </Link>
+              );
+            })}
           </nav>
 
-          <div className="mt-auto p-4 border-t dark:border-zinc-800">
-            <div className="text-sm text-gray-500">Version 0.1</div>
+          {/* ... (Footer คงเดิม) ... */}
+          <div className="mt-auto p-4 border-t border-slate-700">
+            <div className="text-sm text-slate-400">Version 0.1</div>
           </div>
         </div>
       </aside>

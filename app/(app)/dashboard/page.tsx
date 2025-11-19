@@ -1,7 +1,6 @@
 // app/(app)/dashboard/page.tsx
 "use client";
 
-// 1. 👈 Import เพิ่ม: useRouter, ApprovalStep, Icons, Dialog
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -9,9 +8,17 @@ import {
   User,
   RequestItem,
   ApprovalStep,
-} from "@prisma/client"; // 👈 เพิ่ม ApprovalStep
+} from "@prisma/client";
 import { format } from "date-fns";
-import { ArrowUp, ArrowDown, Check, X, Loader2 } from "lucide-react"; // 👈 เพิ่ม Icons
+// 1. 👈 Import ไอคอนเพิ่ม: Package, Clock, CheckCircle
+import {
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+  Package, // 👈 สำหรับ Total
+  Clock,     // 👈 สำหรับ Pending
+  CheckCircle, // 👈 สำหรับ Approved
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -23,8 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
-// 2. 👈 Import Dialog components
+// ... (Imports อื่นๆ เหมือนเดิม) ...
 import {
   Dialog,
   DialogContent,
@@ -38,23 +44,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 
-// 3. 👈 อัปเดต Type ให้มี approvalSteps
 type RequestWithDetails = PurchaseRequest & {
   user: User;
   items: RequestItem[];
-  approvalSteps: ApprovalStep[]; // 👈 เพิ่ม
+  approvalSteps: ApprovalStep[];
 };
 
-// 4. 👈 กำหนด Type สำหรับ Sorting
 type SortKey = "id" | "user" | "totalAmount" | "status" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 export default function Dashboard() {
+  // ... (State และ useEffect ทั้งหมดเหมือนเดิม) ...
   const [requests, setRequests] = useState<RequestWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // State สำหรับ Sorting
   const [sortConfig, setSortConfig] = useState<{
     key: SortKey;
     direction: SortDirection;
@@ -63,11 +67,9 @@ export default function Dashboard() {
     direction: "desc",
   });
 
-  // State สำหรับ Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  // 5. 👈 State สำหรับ Modal
   const [comment, setComment] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -80,9 +82,9 @@ export default function Dashboard() {
     fetchRequests();
   }, []);
 
+  // ... (Functions ทั้งหมด: fetchRequests, handleOpenModal, handleConfirmAction, getStatusVariant, requestSort, handleRowClick เหมือนเดิม) ...
   const fetchRequests = () => {
     setLoading(true);
-    // 6. 👈 API นี้ต้อง include approvalSteps (เราแก้ไข API route.ts แล้ว)
     fetch("/api/purchase-requests")
       .then((res) => res.json())
       .then((data: RequestWithDetails[]) => {
@@ -95,13 +97,12 @@ export default function Dashboard() {
       });
   };
 
-  // 8. 👈 ฟังก์ชันสำหรับ "Approve/Reject" (สำหรับ Approver)
   const handleOpenModal = (
     e: React.MouseEvent,
     stepId: string,
     action: "Approved" | "Rejected"
   ) => {
-    e.stopPropagation(); // 👈 หยุด Row Click
+    e.stopPropagation(); 
     setCurrentAction({ stepId, action });
     setComment("");
     setIsModalOpen(true);
@@ -110,22 +111,19 @@ export default function Dashboard() {
   const handleConfirmAction = async () => {
     if (!currentAction) return;
 
-    // 9. 👈 ตรวจสอบ Comment ถ้า Reject
     if (currentAction.action === "Rejected" && !comment.trim()) {
       alert("Please provide a comment for rejection.");
       return;
     }
 
-    // TODO: 🔴 HARDCODE: ใช้ Test Approver ID
     const actorId =
-      process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001"; // 👈 (แก้ไข ID)
+      process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001"; 
 
     setActionLoading(currentAction.stepId);
     setIsModalOpen(false);
 
     try {
       const res = await fetch("/api/approval-steps", {
-        // 👈 เรียก API approval-steps
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +136,7 @@ export default function Dashboard() {
 
       if (!res.ok) throw new Error(await res.text());
 
-      fetchRequests(); // 👈 รีเฟรช
+      fetchRequests(); 
     } catch (err: any) {
       console.error(err);
       alert("Failed to update status.");
@@ -146,13 +144,12 @@ export default function Dashboard() {
     }
   };
 
-  // 10. 👈 อัปเดต getStatusVariant (ตาม Flow ใหม่)
   const getStatusVariant = (
     status: string
   ): "default" | "secondary" | "destructive" | "outline" => {
     switch (status.toLowerCase()) {
       case "pending":
-        return "secondary"; // 👈 (รออนุมัติ)
+        return "secondary";
       case "approved":
         return "default";
       case "rejected":
@@ -167,8 +164,7 @@ export default function Dashboard() {
         return "outline";
     }
   };
-
-  // 11. 👈 ฟังก์ชันสำหรับกด Sort
+  
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -178,21 +174,19 @@ export default function Dashboard() {
     setCurrentPage(1);
   };
 
-  // 12. 👈 ฟังก์ชันสำหรับคลิกที่แถว
   const handleRowClick = (requestId: string) => {
     router.push(`/purchase-requests/${requestId}`);
   };
 
-  // 13. 👈 อัปเดต Stats (ไม่เอา Approving)
   const stats = {
     total: requests.length,
     pending: requests.filter((r) => r.status.toLowerCase() === "pending")
-      .length, // 👈 เพิ่ม .toLowerCase()
+      .length,
     approved: requests.filter((r) => r.status.toLowerCase() === "approved")
-      .length, // 👈 เพิ่ม .toLowerCase()
+      .length,
   };
 
-  // 14. 👈 Logic สำหรับ Sort (ใช้ useMemo)
+  // ... (sortedRequests และ paginatedRequests useMemo เหมือนเดิม) ...
   const sortedRequests = useMemo(() => {
     const sortableRequests = [...requests];
     sortableRequests.sort((a, b) => {
@@ -220,7 +214,6 @@ export default function Dashboard() {
     return sortableRequests;
   }, [requests, sortConfig]);
 
-  // 15. 👈 Logic สำหรับ Paginate (ใช้ useMemo)
   const paginatedRequests = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -231,57 +224,70 @@ export default function Dashboard() {
 
   return (
     <>
-      {" "}
-      {/* 👈 ครอบด้วย Fragment */}
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
 
-        {/* --- Stats (อัปเดต) --- */}
+        {/* --- (แก้ไข) Stats Cards (เพิ่มไอคอน) --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Requests
-              </CardTitle>
+            {/* 2. 👈 ใช้ flex เพื่อจัดวางไอคอน */}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Requests
+                </CardTitle>
+                <p className="text-3xl font-bold mt-2">{stats.total}</p>
+              </div>
+              {/* 3. 👈 ไอคอน */}
+              <Package className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.total}</p>
-            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending Approval
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Pending Approval
+                </CardTitle>
+                <p className="text-3xl font-bold mt-2">{stats.pending}</p>
+              </div>
+              <Clock className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.pending}</p>
-            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Approved
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Approved
+                </CardTitle>
+                <p className="text-3xl font-bold mt-2">{stats.approved}</p>
+              </div>
+              <CheckCircle className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.approved}</p>
-            </CardContent>
           </Card>
         </div>
 
-        {/* --- 16. 👈 ตารางติดตามสถานะ (อัปเดต) --- */}
+        {/* --- ตาราง (ลบ CardHeader และเพิ่ม hover) --- */}
         <Card>
+          {/* 4. 👈 ลบ CardHeader ส่วนนี้ออกเพื่อให้ดูคลีนขึ้น */}
+          {/*
           <CardHeader>
             <CardTitle>All Purchase Requests</CardTitle>
           </CardHeader>
+          */}
+
           <CardContent>
             {loading ? (
-              <p>Loading requests...</p>
+              // 5. 👈 (ปรับปรุง) ทำให้ Loading ดูดีขึ้น
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
             ) : (
               <>
                 <Table>
-                  {/* ... (TableHeader ที่มี Sort เหมือนเดิม) ... */}
+                  {/* ... (TableHeader เหมือนเดิม) ... */}
                   <TableHeader>
                     <TableRow>
                     <TableHead>
@@ -364,8 +370,7 @@ export default function Dashboard() {
                       <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
-
-                  {/* 17. 👈 อัปเดต TableBody */}
+                  
                   <TableBody>
                     {paginatedRequests.length === 0 ? (
                       <TableRow>
@@ -378,19 +383,18 @@ export default function Dashboard() {
                       </TableRow>
                     ) : (
                       paginatedRequests.map((req) => {
-                        // 18. 👈 หา Pending Step
-                        // (TODO: ถ้าเปิด Auth ควรเช็คว่า user ที่ login คือ approverId)
                         const pendingStep = req.approvalSteps.find(
                           (s) => s.status.toLowerCase() === "pending"
                         );
                         const isLoading =
-                          pendingStep && actionLoading === pendingStep.id; // 👈 (แก้ Loading Key)
+                          pendingStep && actionLoading === pendingStep.id;
 
                         return (
-                          <TableRow key={req.id}
-                          className="cursor-pointer"
-                          onClick={(e) => handleRowClick(req.id)}
->
+                          <TableRow
+                            key={req.id}
+                            className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"                            
+                            onClick={(e) => handleRowClick(req.id)}
+                          >
                             <TableCell>{req.id}</TableCell>
                             <TableCell>{req.user.name}</TableCell>
                             <TableCell>
@@ -406,18 +410,17 @@ export default function Dashboard() {
                               </Badge>
                             </TableCell>
 
-                            {/* 19. 👈 อัปเดต Cell Action (ลบปุ่ม Submit) */}
+                            {/* ... (Cell Action เหมือนเดิม) ... */}
                             <TableCell className="text-right space-x-1">
                               {isLoading ? (
                                 <Button variant="ghost" size="icon" disabled>
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 </Button>
-                              ) : // 20. 👈 (สำคัญ) เปลี่ยนเงื่อนไขเป็น req.status === "Pending"
+                              ) : 
                               req.status.toLocaleLowerCase() === "pending" &&
                                 pendingStep ? (
                                 <>
                                  
-                                  {/* ปุ่ม Reject (เปิด Modal) */}
                                   <Button
                                     variant="destructive"
                                     onClick={(e) =>
@@ -427,11 +430,10 @@ export default function Dashboard() {
                                         "Rejected"
                                       )
                                     }
-                                     className="cursor-pointer"
+                                     
                                   >
                                     Reject
                                   </Button>
-                                  {/* ปุ่ม Approve (เปิด Modal) */}
                                   <Button
                                     onClick={(e) =>
                                       handleOpenModal(
@@ -440,7 +442,7 @@ export default function Dashboard() {
                                         "Approved"
                                       )
                                     }
-                                     className="cursor-pointer"
+                                     
                                   >
                                     Approve
                                   </Button>
@@ -454,7 +456,7 @@ export default function Dashboard() {
                   </TableBody>
                 </Table>
 
-                {/* ... (Pagination Controls) ... */}
+                {/* ... (Pagination Controls เหมือนเดิม) ... */}
                 <div className="flex items-center justify-between space-x-2 py-4">
                   <span className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages} (Total {requests.length}{" "}
@@ -488,7 +490,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      {/* --- 21. 👈 Dialog (Modal) สำหรับยืนยัน --- */}
+
+      {/* ... (Dialog (Modal) คงเดิม) ... */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -507,7 +510,7 @@ export default function Dashboard() {
               <Textarea
                 id="comment-dash"
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={(e) => setComment(e.targe.value)}
                 className="col-span-3"
                 placeholder={
                   currentAction?.action === "Rejected"

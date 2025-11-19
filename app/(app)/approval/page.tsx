@@ -22,9 +22,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"; 
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, FileClock, History, Ban, ChevronLeft, ChevronRight } from "lucide-react"; // 👈 เพิ่มไอคอน Chevron
 
-// 1. 👈 Import Tabs และ Dialog
 import {
   Tabs,
   TabsContent,
@@ -42,34 +41,37 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
-// 2. 👈 Type รวมข้อมูล (เหมือนเดิม)
 type PendingApproval = ApprovalStep & {
   request: PurchaseRequest & {
     user: User;
-    items: RequestItem[]; // 👈 (ใช้ Type ที่ถูกต้อง)
+    items: RequestItem[];
   };
   approver: User;
 };
+
+// 🔻 Constants สำหรับ Pagination
+const ITEMS_PER_PAGE = 10;
 
 export default function Approval() {
   const [allSteps, setAllSteps] = useState<PendingApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // 3. 👈 State สำหรับ Modal
   const [comment, setComment] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentAction, setCurrentAction] = useState<{ stepId: string; action: "Approved" | "Rejected"; } | null>(null);
+  
+  // 🔻 State สำหรับ Pagination
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // 4. 👈 Fetch ข้อมูล (API ที่แก้ไขแล้ว)
   useEffect(() => {
     fetchRequests();
   }, []);
 
   const fetchRequests = () => {
     setLoading(true);
-    fetch("/api/approval-steps") // 👈 (ลบ ?status=Pending ออก)
+    fetch("/api/approval-steps")
       .then((res) => res.json())
       .then((data) => {
         setAllSteps(data);
@@ -81,7 +83,6 @@ export default function Approval() {
       });
   };
 
-  // 5. 👈 แยกข้อมูลสำหรับ Tabs (Waiting vs Done)
   const pendingSteps = useMemo(() => 
     allSteps.filter(step => step.status.toLowerCase() === 'pending')
   , [allSteps]);
@@ -90,7 +91,16 @@ export default function Approval() {
     allSteps.filter(step => step.status.toLowerCase() !== 'pending')
   , [allSteps]);
 
-  // 6. 👈 ฟังก์ชันสำหรับ "เปิด" Modal
+  // 🔻 Logic สำหรับ Pagination (Waiting Tab)
+  const paginatedPendingSteps = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return pendingSteps.slice(startIndex, endIndex);
+  }, [pendingSteps, currentPage]);
+
+  const totalPages = Math.ceil(pendingSteps.length / ITEMS_PER_PAGE);
+  // 🔺 สิ้นสุด Logic Pagination 🔺
+
   const handleOpenModal = (
     stepId: string,
     action: "Approved" | "Rejected"
@@ -100,7 +110,6 @@ export default function Approval() {
     setIsModalOpen(true);
   };
 
-  // 7. 👈 ฟังก์ชัน "ยืนยัน" (ใน Modal)
   const handleConfirmAction = async () => {
     if (!currentAction) return;
     if (currentAction.action === "Rejected" && !comment.trim()) {
@@ -108,7 +117,6 @@ export default function Approval() {
       return;
     }
 
-    // TODO: 🔴 HARDCODE: ใช้ Test Approver ID
     const actorId = process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001";
     
     setActionLoading(currentAction.stepId);
@@ -126,7 +134,7 @@ export default function Approval() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      fetchRequests(); // 👈 รีเฟรช
+      fetchRequests();
 
     } catch (err: any) {
       console.error(err);
@@ -135,7 +143,6 @@ export default function Approval() {
     }
   };
 
-  // 8. 👈 ฟังก์ชันสำหรับ Badge (รองรับตัวเล็ก/ใหญ่)
   const getApprovalStatusVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
     if (!status) return "outline";
     switch (status.toLowerCase()) {
@@ -146,7 +153,6 @@ export default function Approval() {
     }
   };
   
-  // 9. 👈 (Optional) ฟังก์ชันสำหรับคลิกดูรายละเอียด PR
   const handleRowClick = (requestId: string) => {
     router.push(`/purchase-requests/${requestId}`);
   };
@@ -154,72 +160,100 @@ export default function Approval() {
   if (loading) return <div>Loading...</div>;
 
   return (
-    <> {/* 👈 ครอบด้วย Fragment */}
+    <>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Approval Requests</h1>
-
-        {/* --- 10. 👈 เพิ่ม Tabs UI --- */}
+      
         <Tabs defaultValue="waiting" className="w-full">
-          <TabsList>
-            <TabsTrigger value="waiting">
+          {/* TabsList Minimal Underline Style */}
+          <TabsList className="h-auto w-full justify-start p-0 mb-4 bg-transparent border-b border-gray-200 dark:border-zinc-700">
+            <TabsTrigger 
+              value="waiting" 
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-base font-medium transition-all text-muted-foreground 
+                         data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none 
+                         dark:data-[state=active]:border-primary dark:data-[state=active]:text-white dark:data-[state=active]:bg-transparent 
+                         rounded-none hover:text-foreground dark:hover:text-white"
+            >
+              <FileClock className="mr-2 h-4 w-4" />
               Waiting for Approval ({pendingSteps.length})
             </TabsTrigger>
-            <TabsTrigger value="done">
+            <TabsTrigger 
+              value="done"
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-base font-medium transition-all text-muted-foreground
+                         data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none 
+                         dark:data-[state=active]:border-primary dark:data-[state=active]:text-white dark:data-[state=active]:bg-transparent 
+                         rounded-none hover:text-foreground dark:hover:text-white"
+            >
+              <History className="mr-2 h-4 w-4" />
               History ({doneSteps.length})
             </TabsTrigger>
           </TabsList>
           
-          {/* --- Tab: Waiting --- */}
+          {/* --- Tab: Waiting (มี Pagination) --- */}
           <TabsContent value="waiting">
-            <Card>
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Requests Awaiting My Action</CardTitle>
+              </CardHeader>
               <CardContent className="pt-6">
                 <Table>
                   <TableHeader>
+                    {/* 🔻 Table Header (คงเดิม) 🔻 */}
                     <TableRow>
                       <TableHead>Request ID</TableHead>
                       <TableHead>Requestor</TableHead>
-                      <TableHead>Total Amount</TableHead>
+                      <TableHead className="text-right">Total Amount</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingSteps.length === 0 ? (
-                       <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell></TableRow>
+                    {/* 🔻 ใช้ paginatedPendingSteps 🔻 */}
+                    {paginatedPendingSteps.length === 0 ? (
+                       <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals on this page.</TableCell></TableRow>
                     ) : (
-                      pendingSteps.map((step) => (
+                      paginatedPendingSteps.map((step) => (
                         <TableRow 
                           key={step.id} 
-                          className="cursor-pointer" 
+                          className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleRowClick(step.requestId)}
                         >
                           <TableCell>{step.request.id}</TableCell>
                           <TableCell>{step.request.user.name}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-right">
                             ฿{Number(step.request.totalAmount).toFixed(2)}
                           </TableCell>
                           <TableCell>{step.request.items.length}</TableCell>
+                          
+                          {/* ปุ่ม Action เป็น Icon (Ghost Variant) */}
                           <TableCell className="text-right space-x-2">
                             {actionLoading === step.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin mx-auto mr-1" />
                             ) : (
                               <>
+                                {/* Reject Button: Ghost + Red Icon */}
                                 <Button
-                                  variant="destructive"
-                                  size="icon-sm"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenModal(step.id, "Rejected");
                                   }}
+                                  className="text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
+                                  title="Reject Request"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <Ban className="h-4 w-4" /> 
                                 </Button>
+                                {/* Approve Button: Ghost + Primary Color Icon */}
                                 <Button
-                                  size="icon-sm"
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenModal(step.id, "Approved");
                                   }}
+                                  className="text-primary hover:bg-primary/10 dark:hover:bg-primary/20"
+                                  title="Approve Request" 
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
@@ -231,15 +265,53 @@ export default function Approval() {
                     )}
                   </TableBody>
                 </Table>
+
+                {/* 🔻🔻 Pagination Controls 🔻🔻 */}
+                <div className="flex items-center justify-between space-x-2 py-4">
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages} (Total {pendingSteps.length}{" "}
+                    pending requests)
+                  </span>
+                  <div className="space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages || loading}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                {/* 🔺🔺 End Pagination Controls 🔺🔺 */}
+
               </CardContent>
             </Card>
           </TabsContent>
           
-          {/* --- Tab: Done (History) --- */}
+          {/* --- Tab: Done (History - ไม่มี Pagination) --- */}
           <TabsContent value="done">
-            <Card>
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Approval History</CardTitle>
+              </CardHeader>
               <CardContent className="pt-6">
                 <Table>
+                  {/* ... (ตาราง History เหมือนเดิม) ... */}
                   <TableHeader>
                     <TableRow>
                       <TableHead>Request ID</TableHead>
@@ -255,7 +327,7 @@ export default function Approval() {
                       doneSteps.map((step) => (
                          <TableRow 
                           key={step.id} 
-                          className="cursor-pointer"
+                          className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleRowClick(step.requestId)}
                         >
                           <TableCell>{step.request.id}</TableCell>
@@ -279,7 +351,7 @@ export default function Approval() {
         </Tabs>
       </div>
 
-      {/* --- 11. 👈 Dialog (Modal) สำหรับยืนยัน --- */}
+      {/* --- Dialog (Modal) --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>

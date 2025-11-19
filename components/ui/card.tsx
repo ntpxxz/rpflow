@@ -6,8 +6,9 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
+      // 👈 1. ลบ 'border' และเปลี่ยน 'shadow-sm' เป็น 'shadow-md'
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl py-6 shadow-md", 
         className
       )}
       {...props}
@@ -15,6 +16,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+// ... (ส่วนที่เหลือของไฟล์ CardHeader, CardTitle ฯลฯ ไม่ต้องแก้ไข) ...
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

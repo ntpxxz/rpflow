@@ -261,7 +261,10 @@ export default function Purchase() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Create Purchase Request</h1>
+      {/* 🔻 (ใหม่) เพิ่ม Header สำหรับหน้า 🔻 */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Create Purchase Request</h1>
+      </div>
 
       {/* --- ฟอร์ม "Request Details" (แก้ไข) --- */}
       <Card>
@@ -300,10 +303,10 @@ export default function Purchase() {
                   <SelectItem value="URGENT">Urgent</SelectItem>
                   <SelectItem value="PROJECT">Project</SelectItem>
                 </SelectContent>
-              </Select>              
+              </Select>
             </div>
             <div className="space-y-2">
-            <Label htmlFor="due-date">
+              <Label htmlFor="due-date">
                 Due Date <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -317,7 +320,7 @@ export default function Purchase() {
                 min={new Date().toISOString().split("T")[0]}
                 disabled={isSubmitting}
               />
-            </div>             
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -346,7 +349,7 @@ export default function Purchase() {
                     autoComplete="off"
                     className="pl-8"
                   />
-                  <span className="absolute left-2.5 top-[11px] text-muted-foreground">
+                  <span className="absolute left-2.5 top-[11px] text-muted-foreground pointer-events-none">
                     {isSearching ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -438,14 +441,16 @@ export default function Purchase() {
                 />
               </div>
             </div>
-
-            <Button
-              type="submit"
-              disabled={!canAddItem || isSubmitting}
-              className="mt-4"
-            >
-              Add to Request
-            </Button>
+            <div className="flex justify-end" >
+              <Button
+                type="submit"
+                disabled={!canAddItem || isSubmitting}
+                className="mt-4"
+                size="lg"
+              >
+                Add to Request
+              </Button>
+            </div>
           </CardContent>
         </form>
       </Card>
@@ -459,7 +464,7 @@ export default function Purchase() {
           <form onSubmit={handleSubmit}>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-slate-50 dark:hover:bg-slate-800">
                   <TableHead>Item</TableHead>
                   <TableHead>Qty</TableHead>
                   <TableHead>Unit Price</TableHead>
@@ -469,7 +474,7 @@ export default function Purchase() {
               </TableHeader>
               <TableBody>
                 {cart.length === 0 ? (
-                  <TableRow>
+                  <TableRow className="hover:bg-slate-50 dark:hover:bg-slate-800">
                     <TableCell
                       colSpan={6}
                       className="text-center text-muted-foreground"
@@ -479,7 +484,10 @@ export default function Purchase() {
                   </TableRow>
                 ) : (
                   cart.map((item, index) => (
-                    <TableRow key={index}>
+                    <TableRow
+                      key={index}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
                       <TableCell>
                         <div className="text-sm text-muted-foreground truncate w-48">
                           {item.itemName || "-"}
@@ -542,7 +550,7 @@ export default function Purchase() {
                       Submitting...
                     </>
                   ) : (
-                    "Submit Purchase Request"
+                    "Submit Request"
                   )}
                 </Button>
               </div>
