@@ -1,6 +1,6 @@
 // app/(app)/purchase-orders/[poNumber]/page.tsx
 "use client";
-;
+
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PurchaseOrder, PurchaseOrderItem } from "@prisma/client";
@@ -25,16 +25,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { Loader2, Printer, ChevronLeft, Send } from "lucide-react";
+import { Loader2, Printer, ChevronLeft, Send, FileText, MapPin, Phone, Building2 } from "lucide-react";
 import Image from "next/image";
-// Define the types for your PO data
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+
+// Define types
 type ExtendedPurchaseOrderItem = PurchaseOrderItem & {
-  imageUrl?: string; // Make sure imageUrl is part of the type
+  imageUrl?: string;
 };
 
 type PODetails = PurchaseOrder & {
   items: ExtendedPurchaseOrderItem[];
-  totalAmount: number; // This is added by your API
+  totalAmount: number;
 };
 
 export default function PurchaseOrderDetailPage() {
@@ -46,14 +49,14 @@ export default function PurchaseOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for the email modal
+  // Modal & Action States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  
+  // Email Form
   const [recipientEmail, setRecipientEmail] = useState("");
   const [ccEmail, setCcEmail] = useState("");
-
-  // state for PDF preview
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (poNumber) {
@@ -78,47 +81,42 @@ export default function PurchaseOrderDetailPage() {
     }
   }, [poNumber]);
 
-  // Function to generate PDF and send email
-    const handleSendEmail = async () => {
-      if (!recipientEmail) {
-        alert("Please enter a recipient email address.");
-        return;
-      }    
-      setIsSendingEmail(true);    
-      try {    
-        // 3. Send to our API (เหมือนเดิม)
-        const res = await fetch(`/api/purchase-orders/${poNumber}/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recipientEmail: recipientEmail,
-            ccEmail: ccEmail || null,
-          }),
-        });
-    
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || "Failed to send email");
-        }
-    
-        alert("Email sent successfully!");
-        setIsModalOpen(false);
-        setRecipientEmail("");
-        setCcEmail("");
-      } catch (err) {
-        console.error(err);
-        // (แก้ไข) เปลี่ยน alert ให้อ่านง่ายขึ้น
-        alert(`Failed to send email: ${err.message}`);
-      } finally {
-        setIsSendingEmail(false);
-      }       
+  const handleSendEmail = async () => {
+    if (!recipientEmail) {
+      alert("Please enter a recipient email address.");
+      return;
+    }    
+    setIsSendingEmail(true);    
+    try {    
+      const res = await fetch(`/api/purchase-orders/${poNumber}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientEmail: recipientEmail,
+          ccEmails: ccEmail ? ccEmail.split(',').map(e => e.trim()) : undefined,
+        }),
+      });
+  
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to send email");
+      }
+  
+      alert("Email sent successfully!");
+      setIsModalOpen(false);
+      setRecipientEmail("");
+      setCcEmail("");
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to send email: ${err.message}`);
+    } finally {
+      setIsSendingEmail(false);
+    }       
   }
-  // Function to generate PDF document
+
   const handlePrintOrSavePDF = async () => {
     setIsGeneratingPdf(true);
-
     try {
-      // 1. เรียก API "preview" (POST request)
       const res = await fetch(`/api/purchase-orders/${poNumber}/preview`, {
         method: "POST",
       });
@@ -128,14 +126,11 @@ export default function PurchaseOrderDetailPage() {
         throw new Error(errorData.message || "Failed to generate PDF");
       }
 
-      // 2. แปลง PDF ที่ได้กลับมาเป็น Blob
       const pdfBlob = await res.blob();
-      
-      // 3. สร้าง URL ชั่วคราวสำหรับ <iframe
       const url = URL.createObjectURL(pdfBlob);
       window.open(url);
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating PDF:", err);
       alert(`Failed to generate PDF: ${err.message}`);
     } finally {
@@ -143,156 +138,146 @@ export default function PurchaseOrderDetailPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-  if (error) {
-    return <div className="text-destructive">Error: {error}</div>;
-  }
-  if (!poDetails) {
-    return <div>Purchase Order not found.</div>;
-  }
-
-  // (Optional) You can keep your getStatusVariant function if you use it
-  // const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => { ... };
+  if (loading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  if (error) return <div className="flex justify-center items-center h-64 text-red-500">Error: {error}</div>;
+  if (!poDetails) return <div className="flex justify-center items-center h-64 text-muted-foreground">Purchase Order not found.</div>;
 
   return (
-    <div className="space-y-6 max-w-xxl mx-auto">
-      {/* --- Button Controls (Non-Printable) --- */}
-      <div className="no-print flex justify-between items-center">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Back to PO List
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsModalOpen(true)}>
+    <div className="space-y-6 max-w mx-auto pb-10">
+      
+      {/* --- Header & Actions --- */}
+      <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-slate-500 hover:text-slate-900">
+                <ChevronLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <h1 className="text-2xl font-bold text-slate-900">Order Details</h1>
+            <Badge variant="outline" className="ml-2 bg-slate-50">{poDetails.status}</Badge>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+        {/*<Button variant="outline" onClick={() => setIsModalOpen(true)} className="flex-1 sm:flex-none">
             <Send className="h-4 w-4 mr-2" />
-            Send via Email
-          </Button>
-          <Button
-            onClick={handlePrintOrSavePDF}
-            disabled={isGeneratingPdf} 
-          >
-            {isGeneratingPdf ? ( 
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Printer className="h-4 w-4 mr-1" />
-            )}
-            Print to PDF
+            Email Vendor
+          </Button>*/}
+          <Button onClick={handlePrintOrSavePDF} disabled={isGeneratingPdf} className="flex-1 sm:flex-none bg-slate-900 text-white hover:bg-slate-800">
+            {isGeneratingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
+            Print / PDF
           </Button>
         </div>
       </div>
 
-      {/* --- Printable PO Area --- */}
-      <div className="printable-area bg-white p-8 rounded-lg shadow-lg">
-        {/* PO Header */}
-        <header className="mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                PURCHASE ORDER
-              </h1>
-              <h2 className="text-2xl font-bold text-gray-700">
-                {poDetails.poNumber}
-              </h2>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold mb-2">IOT SECTION</div>
-              <p className="text-sm text-gray-600">
-                NMB, Spindle motor division
-              </p>
-              <p className="text-sm text-gray-600">Tel: 2472</p>
-            </div>
+      {/* --- Document Preview Area --- */}
+      <Card className="printable-area bg-white p-8 md:p-12 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        
+        {/* Document Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start mb-12 border-b border-slate-100 pb-8">
+          <div className="space-y-4">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+                    <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-slate-900">PURCHASE ORDER</h2>
+                    <p className="text-sm text-slate-500">Official Document</p>
+                </div>
+             </div>
+             
+             <div className="pt-4 space-y-1 text-sm text-slate-600">
+                <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                    <span className="font-medium text-slate-900">IOT SECTION</span>
+                </div>
+                <div className="flex items-center gap-2 pl-6">
+                    <span>NMB, Spindle motor division</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                    <span>Tel: 2472</span>
+                </div>
+             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase">
-                PO Details
-              </h3>
-              <p className="text-sm text-gray-600">
-                <strong>PO Date:</strong>{" "}
-                {format(new Date(poDetails.createdAt), "dd MMM yyyy")}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Sent Date:</strong>{" "}
-                {poDetails.sentAt
-                  ? format(new Date(poDetails.sentAt), "dd MMM yyyy")
-                  : "N/A"}
-              </p>
+          <div className="mt-6 md:mt-0 text-left md:text-right space-y-1">
+            <p className="text-sm text-slate-500">PO Number</p>
+            <h3 className="text-2xl font-mono font-bold text-slate-900 tracking-tight">{poDetails.poNumber}</h3>
+            
+            <div className="pt-4 space-y-1">
+                <div className="flex md:justify-end items-center gap-4 text-sm">
+                    <span className="text-slate-500">Issue Date:</span>
+                    <span className="font-medium">{format(new Date(poDetails.createdAt), "dd MMM yyyy")}</span>
+                </div>
+                <div className="flex md:justify-end items-center gap-4 text-sm">
+                    <span className="text-slate-500">Sent Date:</span>
+                    <span className="font-medium">
+                        {poDetails.sentAt ? format(new Date(poDetails.sentAt), "dd MMM yyyy") : "-"}
+                    </span>
+                </div>
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* PO Items Table */}
-        <main className="mb-8">
+        {/* Items Table */}
+        <div className="mb-12">
           <Table>
-            <TableHeader className="bg-gray-100">
-              <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>Image</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-b border-slate-200">
+                <TableHead className="w-[80px] text-xs font-bold uppercase tracking-wider text-slate-500">Image</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">Item Description</TableHead>
+                <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-500">Qty</TableHead>
+                <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-500">Unit Price</TableHead>
+                <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-500">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {poDetails.items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium text-gray-800">
-                    {item.itemName}
-                  </TableCell>
-                  <TableCell>
+                <TableRow key={item.id} className="hover:bg-slate-50/50 border-b border-slate-100">
+                  <TableCell className="py-4">
                     {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.itemName}
-                        width={64}
-                        height={64}
-                        className="rounded object-cover"
-                      />
+                      <div className="w-12 h-12 rounded-lg border border-slate-100 overflow-hidden relative bg-white">
+                          <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground">No Image</span>
+                      <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-xs text-slate-400">No Img</div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-gray-800">
-                    {item.quantity}
+                  <TableCell className="py-4">
+                    <div className="font-semibold text-slate-900">{item.itemName}</div>
+                    <div className="text-xs text-slate-500 mt-1">{item.detail || "No additional details"}</div>
                   </TableCell>
-                  <TableCell className="text-right text-gray-800">
-                    ฿{Number(item.unitPrice).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium text-gray-800">
-                    ฿{(item.quantity * Number(item.unitPrice)).toFixed(2)}
+                  <TableCell className="text-right py-4 font-medium">{item.quantity}</TableCell>
+                  <TableCell className="text-right py-4 text-slate-600">฿{Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right py-4 font-bold text-slate-900">
+                    ฿{(item.quantity * Number(item.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </main>
+        </div>
 
-        {/* PO Footer (Totals) */}
-        <footer className="flex justify-end">
-          <div className="w-full max-w-xs space-y-2 text-gray-800">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">
-                ฿{poDetails.totalAmount.toFixed(2)}
-              </span>
+        {/* Footer & Totals */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+            <div className="text-sm text-slate-500 max-w-sm">
+                <p className="font-semibold text-slate-900 mb-1">Notes:</p>
+                <p>Please confirm receipt of this purchase order. All goods must be delivered to the address specified above.</p>
             </div>
-            <div className="flex justify-between border-t border-gray-300 pt-2 mt-2">
-              <span className="text-lg font-bold">Total Amount:</span>
-              <span className="text-lg font-bold">
-                ฿{poDetails.totalAmount.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </footer>
 
-      </div>
+            <div className="w-full md:w-72 bg-slate-50 p-6 rounded-lg border border-slate-100">
+                <div className="flex justify-between items-center mb-3 text-sm">
+                    <span className="text-slate-500">Subtotal</span>
+                    <span className="font-medium text-slate-900">฿{poDetails.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center mb-4 text-sm">
+                    <span className="text-slate-500">VAT (7%)</span>
+                    <span className="font-medium text-slate-900">฿{(poDetails.totalAmount * 0.07).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="border-t border-slate-200 pt-4 flex justify-between items-center">
+                    <span className="font-bold text-slate-900">Total</span>
+                    <span className="font-bold text-xl text-blue-600">฿{(poDetails.totalAmount * 1.07).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+            </div>
+        </div>
+      </Card>
 
       {/* --- Email Send Modal --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -300,15 +285,12 @@ export default function PurchaseOrderDetailPage() {
           <DialogHeader>
             <DialogTitle>Send PO Email</DialogTitle>
             <DialogDescription>
-              Enter the recipient's email address. The PO will be attached as a
-              PDF.
+              Send this purchase order to the vendor. A PDF copy will be attached.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-left">
-                Recipient:
-              </Label>
+              <Label htmlFor="email" className="text-right text-slate-500">To</Label>
               <Input
                 id="email"
                 type="email"
@@ -318,15 +300,12 @@ export default function PurchaseOrderDetailPage() {
                 onChange={(e) => setRecipientEmail(e.target.value)}
               />
             </div>
-            {/*ช่อง CC*/}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="cc-email" className="text-right">
-                CC:
-              </Label>
+              <Label htmlFor="cc-email" className="text-right text-slate-500">CC</Label>
               <Input
                 id="cc-email"
                 type="email"
-                placeholder="(Optional) manager@company.com"
+                placeholder="manager@company.com"
                 className="col-span-3"
                 value={ccEmail}
                 onChange={(e) => setCcEmail(e.target.value)}
@@ -343,12 +322,9 @@ export default function PurchaseOrderDetailPage() {
               type="button"
               onClick={handleSendEmail}
               disabled={isSendingEmail}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isSendingEmail ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-4 w-4" />
-              )}
+              {isSendingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Send Email
             </Button>
           </DialogFooter>

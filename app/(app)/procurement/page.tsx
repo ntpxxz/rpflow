@@ -1,13 +1,13 @@
 // app/(app)/procurement/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react"; // 👈 1. เพิ่ม useMemo
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation"; // 👈 useRouter
 import { PurchaseRequest, User, RequestItem } from "@prisma/client";
+import { format } from "date-fns";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   CardFooter,
 } from "@/components/ui/card";
 import {
@@ -21,39 +21,43 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2 } from "lucide-react";
+import { Zap, FileText, ArrowRight, FileQuestion, Package, FileCheck } from "lucide-react"; // เพิ่มไอคอน
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
+import { cn } from "@/lib/utils";
+import React from "react";
+import Image from "next/image";
 type ProcurementItem = RequestItem & {
+  isQuotationRequested: boolean; // รับค่ามาจาก DB
   request: {
     id: string;
     requesterName: string | null;
     user: {
       name: string;
     } | null;
+    createdAt: Date; 
   };
+  procurementStatus: 'QUEUE' | 'AWAITING_PO';
+};
+
+type GroupedItems = {
+    [requestId: string]: ProcurementItem[];
 };
 
 export default function ProcurementPage() {
+  const router = useRouter();
   const [itemsToOrder, setItemsToOrder] = useState<ProcurementItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [itemQuotations, setItemQuotations] = useState<{
-    [itemId: string]: string;
-  }>({});
+  
+  const [selectedQueueIds, setSelectedQueueIds] = useState<string[]>([]);
+  const [selectedAwaitingPoIds, setSelectedAwaitingPoIds] = useState<string[]>([]);
+  const [itemQuotations, setItemQuotations] = useState<{[itemId: string]: string}>({});
+
   useEffect(() => {
     fetchItems();
   }, []);
@@ -63,282 +67,198 @@ export default function ProcurementPage() {
     fetch("/api/procurement/queue")
       .then((res) => res.json())
       .then((data: ProcurementItem[]) => {
-        setItemsToOrder(data);
+        const initialItems: ProcurementItem[] = data.map(item => ({
+          ...item,
+          procurementStatus: item.isQuotationRequested ? 'AWAITING_PO' : 'QUEUE',
+          request: {
+             ...(item as any).request,
+             createdAt: new Date((item as any).request.createdAt || new Date()), 
+          }
+        })) as ProcurementItem[];
+        setItemsToOrder(initialItems);
       })
       .catch((err) => console.error("Error fetching procurement items:", err))
       .finally(() => {
         setLoading(false);
-        setIsSubmitting(false);
-        setSelectedItemIds([]);
-        setIsModalOpen(false);
-        setItemQuotations({});
       });
   };
 
-  // ... (Handler handleItemSelect, handleSelectAll) ...
-  const handleItemSelect = (itemId: string) => {
-    setSelectedItemIds((prev) =>
-      prev.includes(itemId)
-        ? prev.filter((id) => id !== itemId)
-        : [...prev, itemId]
-    );
+  // ... (Logic การแบ่งกลุ่มและ Selection คงเดิม) ...
+  const queueItems = useMemo(() => itemsToOrder.filter(item => item.procurementStatus === 'QUEUE'), [itemsToOrder]);
+  const awaitingPoItems = useMemo(() => itemsToOrder.filter(item => item.procurementStatus === 'AWAITING_PO'), [itemsToOrder]);
+
+  const groupedQueueItems = useMemo(() => {
+    return queueItems.reduce((acc: GroupedItems, item) => {
+        const requestId = item.request.id;
+        if (!acc[requestId]) acc[requestId] = [];
+        acc[requestId].push(item);
+        return acc;
+    }, {});
+  }, [queueItems]);
+
+  const groupedAwaitingPoItems = useMemo(() => {
+      return awaitingPoItems.reduce((acc: GroupedItems, item) => {
+          const requestId = item.request.id;
+          if (!acc[requestId]) acc[requestId] = [];
+          acc[requestId].push(item);
+          return acc;
+      }, {});
+  }, [awaitingPoItems]);
+
+  const handleItemSelect = (itemId: string, currentStatus: ProcurementItem['procurementStatus']) => {
+    const selector = currentStatus === 'QUEUE' ? setSelectedQueueIds : setSelectedAwaitingPoIds;
+    selector((prev) => prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]);
   };
 
-  const handleSelectAll = () => {
-    if (selectedItemIds.length === itemsToOrder.length) {
-      setSelectedItemIds([]);
-    } else {
-      setSelectedItemIds(itemsToOrder.map((item) => item.id));
-    }
+  const handleSelectAll = (currentStatus: ProcurementItem['procurementStatus']) => {
+    const items = currentStatus === 'QUEUE' ? queueItems : awaitingPoItems;
+    const selectedIds = currentStatus === 'QUEUE' ? selectedQueueIds : selectedAwaitingPoIds;
+    const selector = currentStatus === 'QUEUE' ? setSelectedQueueIds : setSelectedAwaitingPoIds;
+    if (selectedIds.length === items.length) selector([]);
+    else selector(items.map((item) => item.id));
+  };
+  
+  const handleGroupSelect = (requestId: string, groupItems: ProcurementItem[], isCurrentlySelected: boolean, currentStatus: ProcurementItem['procurementStatus']) => {
+    const selector = currentStatus === 'QUEUE' ? setSelectedQueueIds : setSelectedAwaitingPoIds;
+    const itemIds = groupItems.map(item => item.id);
+    if (isCurrentlySelected) selector(prev => prev.filter(id => !itemIds.includes(id)));
+    else selector(prev => [...new Set([...prev, ...itemIds])]);
   };
 
-  // 4. 🔻 (ใหม่) สร้าง useMemo เพื่อกรอง Item ที่จะแสดงใน Preview 🔻
-  const itemsForPreview = useMemo(() => {
-    return itemsToOrder.filter((item) => selectedItemIds.includes(item.id));
-  }, [itemsToOrder, selectedItemIds]);
+  // 🔻 (แก้ไข) นำทางไปหน้า Request Quotation (New Page)
+  const handleGoToRequestQuotation = () => {
+    if (selectedQueueIds.length === 0) return;
+    const idsParam = selectedQueueIds.join(",");
+    router.push(`/procurement/request-quotation?ids=${idsParam}`);
+  };
 
-  // 5. 🔻 (ใหม่) คำนวณยอดรวมสำหรับ Preview 🔻
-  const previewTotal = useMemo(() => {
-    return itemsForPreview.reduce((total, item) => {
-      const quantityToOrder = item.quantity - item.quantityOrdered;
-      return total + quantityToOrder * Number(item.unitPrice);
-    }, 0);
-  }, [itemsForPreview]);
+  // 🔻 (แก้ไข) นำทางไปหน้า Create PO (New Page)
+  const handleGoToCreatePO = () => {
+    if (selectedAwaitingPoIds.length === 0) return;
+    const idsParam = selectedAwaitingPoIds.join(",");
+    router.push(`/procurement/create-po?ids=${idsParam}`);
+  };
 
-  // 2. 🔻 (ใหม่) Handler สำหรับอัปเดต State ของ Input แต่ละตัว 🔻
+  const handleMoveToQueue = () => {
+    // ... (Logic ย้ายกลับ Queue เหมือนเดิม ถ้าต้องการ) ...
+    // เพื่อความกระชับในตัวอย่างนี้ ผมขอละไว้ ถ้าคุณใช้ Logic เดิมก็ใส่กลับมาได้ครับ
+    alert("Move back logic here");
+  };
+  
   const handleQuotationChange = (itemId: string, value: string) => {
-    setItemQuotations((prev) => ({
-      ...prev,
-      [itemId]: value,
-    }));
+    setItemQuotations((prev) => ({ ...prev, [itemId]: value }));
   };
 
-  // 6. 🔻 (แก้ไข) ฟังก์ชันนี้จะแค่ "เปิด" Modal 🔻
-  const handleOpenPreview = () => {
-    if (selectedItemIds.length === 0) {
-      alert("Please select at least one item.");
-      return;
-    }
-    // (ไม่ต้อง reset quotationNumber ที่นี่แล้ว)
-    setIsModalOpen(true);
-  };
+  const renderTable = (items: ProcurementItem[], selectedIds: string[], currentStatus: ProcurementItem['procurementStatus'], groupedItems: GroupedItems) => {
+    const allSelected = items.length > 0 && selectedIds.length === items.length;
+    const someSelected = selectedIds.length > 0 && !allSelected;
+    
+    return (
+      <Table>
+        <TableHeader>
+            <TableRow>
+                <TableHead className="w-[50px]">
+                    <Checkbox checked={allSelected} indeterminate={someSelected} onCheckedChange={() => handleSelectAll(currentStatus)} />
+                </TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead></TableHead>
+                <TableHead>PR</TableHead>                
+                <TableHead>Requestor</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead className="w-[200px]">Quotation No.</TableHead>
+            </TableRow>
+        </TableHeader>
+        <TableBody>
+            {Object.keys(groupedItems).length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No items.</TableCell></TableRow>
+            ) : (
+                Object.entries(groupedItems).map(([requestId, groupItems]) => {
+                    const allGroupSelected = groupItems.every(item => selectedIds.includes(item.id));
+                    const someGroupSelected = groupItems.some(item => selectedIds.includes(item.id)) && !allGroupSelected;
+                    return (
+                        <React.Fragment key={requestId}>
+                            {groupItems.map((item) => {
+                                const isSelected = selectedIds.includes(item.id);
+                                return (
+                                    <TableRow key={item.id} data-state={isSelected ? "selected" : ""}>
+                                        <TableCell><Checkbox checked={isSelected} onCheckedChange={() => handleItemSelect(item.id, currentStatus)} /></TableCell>
+                                        <TableCell>
+                                    <div className="relative w-28 h-28 rounded-lg overflow-hidden border bg-slate-50 shrink-0 self-center">
+                                        {item.imageUrl ? (
+                                            <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                <Package className="h-10 w-10" />
+                                            </div>
+                                        )}
+                                    </div>                                        </TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">{item.itemName}</div>
+                                            <div className="text-xs text-muted-foreground truncate max-w-[200px]">{item.detail}</div>
+                                        </TableCell>
+                                        <TableCell className="text-sm"> {requestId} </TableCell>
+                                        <TableCell className="text-sm">{item.request.user?.name || item.request.requesterName}</TableCell>
+                                        <TableCell>{item.quantity - item.quantityOrdered}</TableCell>
+                                        <TableCell>
+                                            <Input
+                                                placeholder="QT No."
+                                                value={itemQuotations[item.id] || ""}
+                                                onChange={(e) => handleQuotationChange(item.id, e.target.value)}
+                                                disabled={currentStatus === 'QUEUE'} 
+                                                className={cn("h-8", !isSelected && currentStatus === 'AWAITING_PO' && "opacity-50")}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </React.Fragment>
+                    );
+                })
+            )}
+        </TableBody>
+    </Table>
+    );
+  }
 
-  // 7. 🔻 (ใหม่) ฟังก์ชันนี้จะ "ยืนยัน" การสร้าง PO (ย้าย Logic เดิมมานี่) 🔻
-  const handleConfirmPO = async () => {
-    setIsSubmitting(true);
-
-    // 3. 🔻 (แก้ไข) สร้าง Payload แบบใหม่ 🔻
-    // รวบรวมเฉพาะ ID และ Quotation ของรายการที่ "ถูกเลือก" เท่านั้น
-    const itemsToSubmit = selectedItemIds.map((id) => ({
-      id: id,
-      quotationNumber: itemQuotations[id] || null, // ส่งค่าที่กรอก หรือ null ถ้าว่าง
-    }));
-
-    const res = await fetch(`/api/purchase-orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: itemsToSubmit }),
-    });
-    // 3. 🔺 (สิ้นสุดการแก้ไข API Call) 🔺
-
-    if (res.ok) {
-      alert("Purchase Order Created!");
-      fetchItems();
-    } else {
-      const error = await res.json();
-      alert(`Failed to create PO: ${error.message}`);
-      setIsSubmitting(false);
-    }
-  };
-  if (loading) return <div>Loading approved items queue...</div>;
-
-  const allSelected =
-    selectedItemIds.length === itemsToOrder.length && itemsToOrder.length > 0;
-  const someSelected = selectedItemIds.length > 0 && !allSelected;
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <>
-      {" "}
-      {/* 👈 8. ครอบด้วย Fragment (ถ้ายังไม่ได้ครอบ) */}
-      <div className="space-y-6">
+    <div className="space-y-6">
         <h1 className="text-2xl font-bold">Procurement Queue</h1>
+        <Tabs defaultValue="queue" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="queue" className="gap-2"><Zap className="h-4 w-4"/> 1. New Items ({queueItems.length})</TabsTrigger>
+                <TabsTrigger value="awaiting_po" className="gap-2"><FileText className="h-4 w-4"/> 2. Ready for PO ({awaitingPoItems.length})</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="queue">
+                <Card>
+                    <CardContent className="pt-6">{renderTable(queueItems, selectedQueueIds, 'QUEUE', groupedQueueItems)}</CardContent>
+                    {queueItems.length > 0 && (
+                        <CardFooter className="justify-end pt-6 gap-2">
+                            <Button onClick={handleGoToRequestQuotation} disabled={selectedQueueIds.length === 0}>
+                            <FileQuestion className="h-4 w-4"/>Generate RFQ ({selectedQueueIds.length}) 
+                            </Button>
+                        </CardFooter>
+                    )}
+                </Card>
+            </TabsContent>
 
-        <Card>
-          {/* ... (CardHeader, CardContent, Table... ทั้งหมดเหมือนเดิม) ... */}
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={allSelected || someSelected}
-                      indeterminate={someSelected}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead>Request ID</TableHead>
-                  <TableHead>Requestor</TableHead>
-                  <TableHead>Qty to Order</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="w-[200px]">Quotation No.</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {itemsToOrder.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      No items awaiting procurement.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  itemsToOrder.map((item) => {
-                    const quantityToOrder =
-                      item.quantity - item.quantityOrdered;
-                    const isSelected = selectedItemIds.includes(item.id);
-
-                    return (
-                      <TableRow
-                        key={item.id}
-                        data-state={isSelected ? "selected" : ""}
-                      >
-                        <TableCell>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => handleItemSelect(item.id)}
-                            aria-label={`Select item ${item.itemName}`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {item.itemName}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {item.request.id.substring(0, 10)}...
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {item.request.user?.name ||
-                            item.request.requesterName}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-bold">{quantityToOrder}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ฿{Number(item.unitPrice).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            placeholder="Optional Quotation #"
-                            value={itemQuotations[item.id] || ""}
-                            onChange={(e) =>
-                              handleQuotationChange(item.id, e.target.value)
-                            }
-                            // ทำให้ช่องจางลงถ้ายังไม่ถูกเลือก (เพื่อความสวยงาม)
-                            className={!isSelected ? "opacity-50" : ""}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-
-          {itemsToOrder.length > 0 && (
-            <CardFooter className="flex justify-end border-t pt-6">
-              {/* 9. 🔻 (แก้ไข) ปุ่มนี้จะเรียก "เปิด" Preview 🔻 */}
-              <Button
-                size="lg"
-                onClick={handleOpenPreview} // 👈 9.1 เปลี่ยน Function
-                disabled={isSubmitting || selectedItemIds.length === 0}
-              >
-                {/* 9.2 (ลบ Loader ออกจากปุ่มนี้) */}
-                Create PO for ({selectedItemIds.length}) selected items
-              </Button>
-            </CardFooter>
-          )}
-        </Card>
-      </div>
-      {/* 10. 🔻 (ใหม่) เพิ่ม Dialog/Modal JSX 🔻 */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          {" "}
-          {/* 👈 (ขยายขนาด Modal) */}
-          <DialogHeader>
-            <DialogTitle>Confirm Purchase Order Creation</DialogTitle>
-            <DialogDescription>
-              You are about to create a new PO with {itemsForPreview.length}{" "}
-              items. Please review the details below.
-            </DialogDescription>
-          </DialogHeader>
-          {/* --- ส่วนแสดงตาราง Preview --- */}
-          <div className="max-h-[400px] overflow-y-auto pr-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Quotation No.</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {itemsForPreview.map((item) => {
-                  const qty = item.quantity - item.quantityOrdered;
-                  const price = Number(item.unitPrice);
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.itemName}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {item.request.id}
-                        </div>
-                      </TableCell>
-                      <TableCell>{qty}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {itemQuotations[item.id] || "-"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        ฿{price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        ฿{(qty * price).toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-          {/* --- สิ้นสุดตาราง Preview --- */}
-          <div className="text-xl font-bold text-right pt-4 border-t">
-            Total: ฿{previewTotal.toFixed(2)}
-          </div>
-
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSubmitting}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              onClick={handleConfirmPO} 
-              disabled={isSubmitting}
-            >
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Confirm & Create PO
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+            <TabsContent value="awaiting_po">
+                 <Card>
+                    <CardContent className="pt-6">{renderTable(awaitingPoItems, selectedAwaitingPoIds, 'AWAITING_PO', groupedAwaitingPoItems)}</CardContent>
+                    {awaitingPoItems.length > 0 && (
+                        <CardFooter className="justify-between pt-6">
+                            {/*<Button variant="outline" onClick={handleMoveToQueue} disabled={selectedAwaitingPoIds.length === 0}>Back to Queue</Button>*/}
+                            {/* 🔻 ปุ่มไปหน้า Create PO */}
+                            <Button onClick={handleGoToCreatePO} disabled={selectedAwaitingPoIds.length === 0}>
+                            <FileCheck className="h-4 w-4"/> Create PO ({selectedAwaitingPoIds.length}) 
+                            </Button>
+                        </CardFooter>
+                    )}
+                </Card>
+            </TabsContent>
+        </Tabs>
+    </div>
   );
 }

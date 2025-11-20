@@ -2,9 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/**
- * ดึงข้อมูล PO 1 ใบ โดยใช้ poNumber
- */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ poNumber: string }> }
@@ -18,16 +15,36 @@ export async function GET(
 
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
       where: {
-        poNumber: poNumber, // 👈 ค้นหาด้วย poNumber (ซึ่ง @unique)
+        poNumber: poNumber,
       },
       include: {
-        items: { // 👈 ดึงรายการสินค้าทั้งหมดใน PO นี้
-          orderBy: {
-            itemName: 'asc'
+        items: {
+          orderBy: { itemName: 'asc' },
+          // 🟢 เพิ่มการดึงข้อมูล Request และความสัมพันธ์ที่เกี่ยวข้อง
+          include: {
+            requestItem: {
+              include: {
+                request: {
+                  include: {
+                    user: true, // Requester info
+                    approvalSteps: {
+                      include: {
+                        approver: true // Approver info
+                      },
+                      where: {
+                         status: 'approved' // เอาเฉพาะคนที่อนุมัติแล้ว
+                      },
+                      orderBy: {
+                        approvedAt: 'desc' // เอาคนล่าสุด
+                      },
+                      take: 1
+                    }
+                  }
+                }
+              }
+            }
           }
-        }, 
-        // 🔴 TODO: (อนาคต) เมื่อมี Model Vendor
-        // vendor: true, 
+        },
       }
     });
 
@@ -35,7 +52,7 @@ export async function GET(
       return NextResponse.json({ message: "Purchase Order not found" }, { status: 404 });
     }
 
-    // (คำนวณยอดรวม)
+    // คำนวณยอดรวม (เหมือนเดิม)
     const totalAmount = purchaseOrder.items.reduce((sum, item) => {
         return sum + (item.quantity * Number(item.unitPrice));
     }, 0);

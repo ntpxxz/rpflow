@@ -1,4 +1,4 @@
-// app/(app)/purchase/page.tsx
+// app/(app)/purchase-requests/new/page.tsx
 "use client";
 
 import { useState, FormEvent, ChangeEvent, useEffect, useRef } from "react";
@@ -23,15 +23,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// 🔻 (ใหม่) Import สิ่งที่จำเป็นสำหรับ Date Picker
+// 🔻 ลบ/ซ่อน Imports ของ Date Picker ที่ไม่ใช้แล้ว
 import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+// import { Calendar as CalendarIcon } from "lucide-react";
+// import { Calendar } from "@/components/ui/calendar";
+// import {
+//   Popover,
+//   PopoverContent,
+//   PopoverTrigger,
+// } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Trash2, Loader2, Search } from "lucide-react";
 
@@ -61,14 +61,11 @@ export default function Purchase() {
   const [requesterName, setRequesterName] = useState<string>("");
   const [requestType, setRequestType] = useState<string>("");
 
-  // 🔻 (ใหม่) State สำหรับ Due Date
-  const [dueDate, setDueDate] = useState<Date | undefined>();
-
-  useEffect(() => {
-    console.log("dueDate changed:", dueDate);
-  }, [dueDate]);
-
-  // (State อื่นๆ... itemSearchTerm, currentPrice... เหมือนเดิม)
+  // 🔻 (แก้ไข) ใช้ Date และ String State สำหรับ Input type="date"
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [tempDate, setTempDate] = useState<string>(""); // YYYY-MM-DD string
+  
+  // (State อื่นๆ... เหมือนเดิม)
   const [itemSearchTerm, setItemSearchTerm] = useState<string>("");
   const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -81,8 +78,8 @@ export default function Purchase() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const [tempDate, setTempDate] = useState<string>("");
-  // (Effect ต่างๆ... fetchItems, handleClickOutside... เหมือนเดิม)
+
+  // (Effect ต่างๆ... เหมือนเดิม)
   useEffect(() => {
     if (itemSearchTerm.length < 2) {
       setSearchResults([]);
@@ -112,7 +109,7 @@ export default function Purchase() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchContainerRef]);
 
-  // (Handlers... handleSearchChange, handleItemSelect... เหมือนเดิม)
+  // (Handlers... handleSearchChange, handleItemSelect, handleAddItemToCart, handleRemoveItem, handleUpdateItemQuantity เหมือนเดิม)
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setItemSearchTerm(e.target.value);
   };
@@ -163,13 +160,16 @@ export default function Purchase() {
     );
     setSubmitStatus(null);
   };
-
+  
   // 🔻 (แก้ไข) Handler "ส่งใบขอซื้อ"
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
     // (แก้ไข) เพิ่มการตรวจสอบ Due Date
+    const isSpecialRequest =
+      requestType === "URGENT" || requestType === "PROJECT";
+      
     if (cart.length === 0 || !requesterName || !requestType) {
       setSubmitStatus({
         type: "error",
@@ -177,10 +177,20 @@ export default function Purchase() {
       });
       return;
     }
-    if ((requestType === "URGENT" || requestType === "PROJECT") && !dueDate) {
+    // 🔻 (ใช้ tempDate ในการตรวจสอบ)
+    if (isSpecialRequest && !tempDate) {
       setSubmitStatus({
         type: "error",
         message: "Due Date is required for Urgent or Project requests.",
+      });
+      return;
+    }
+    const checkDate = tempDate ? new Date(tempDate) : undefined;
+    // 🛑 ตรวจสอบ Due Date ต้องไม่เป็นอดีต (สำหรับ Urgent/Project)
+    if (checkDate && checkDate.getTime() < new Date().setHours(0,0,0,0) && isSpecialRequest) {
+      setSubmitStatus({
+        type: "error",
+        message: "Due Date cannot be in the past.",
       });
       return;
     }
@@ -196,9 +206,9 @@ export default function Purchase() {
     formData.append("requesterName", requesterName);
     formData.append("requestType", requestType);
 
-    // (ใหม่) ส่ง Due Date (ถ้ามี)
-    if (dueDate && requestType !== "NORMAL") {
-      formData.append("dueDate", dueDate.toISOString());
+    // 🔻 (แก้ไข) ส่ง Due Date (ถ้ามี) - ใช้ tempDate ที่เป็น string
+    if (tempDate && isSpecialRequest) {
+      formData.append("dueDate", new Date(tempDate).toISOString());
     }
 
     // (Items และ Images - เหมือนเดิม)
@@ -231,7 +241,8 @@ export default function Purchase() {
       setCart([]);
       setRequesterName("");
       setRequestType("");
-      setDueDate(undefined); // 👈 (ใหม่) รีเซ็ต Date
+      setDueDate(undefined);
+      setTempDate(""); // 👈 (ใหม่) รีเซ็ต Date string
       window.location.href = "/dashboard";
     } catch (err: any) {
       setSubmitStatus({
@@ -257,7 +268,8 @@ export default function Purchase() {
     requestType !== "" &&
     !isSubmitting &&
     (requestType === "NORMAL" ||
-      (requestType !== "NORMAL" && dueDate !== undefined));
+      ((requestType === "URGENT" || requestType === "PROJECT") && tempDate !== ""));
+
 
   return (
     <div className="space-y-6">
@@ -292,7 +304,14 @@ export default function Purchase() {
               </Label>
               <Select
                 value={requestType}
-                onValueChange={setRequestType}
+                onValueChange={(value) => {
+                  setRequestType(value);
+                  // 🔻 เมื่อเปลี่ยนเป็น Normal ให้เคลียร์ DueDate
+                  if (value === 'NORMAL') {
+                      setDueDate(undefined);
+                      setTempDate('');
+                  }
+                }}
                 disabled={isSubmitting}
               >
                 <SelectTrigger id="req-type" className="w-full">
@@ -307,23 +326,33 @@ export default function Purchase() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="due-date">
-                Due Date <span className="text-red-500">*</span>
+                Due Date
+                {/* 🔻 แสดง * ถ้าไม่ใช่ Normal */}
+                {requestType !== "NORMAL" && (
+                  <span className="text-red-500">*</span>
+                )}
               </Label>
+              {/* 🔻 ใช้ Input type="date" กลับคืนมา */}
               <Input
                 id="due-date"
                 type="date"
                 value={tempDate}
                 onChange={(e) => {
                   setTempDate(e.target.value);
-                  setDueDate(new Date(e.target.value));
+                  // ถ้าต้องการเก็บเป็น Date object ควบคู่ไปด้วย:
+                  setDueDate(e.target.value ? new Date(e.target.value) : undefined);
                 }}
+                // กำหนดวันที่เริ่มต้น (วันนี้)
                 min={new Date().toISOString().split("T")[0]}
-                disabled={isSubmitting}
+                disabled={isSubmitting || requestType === "NORMAL"} // ปิดถ้าเป็น Normal
+                placeholder={requestType === "NORMAL" ? "Auto-set to 7 days" : "Pick a date"}
               />
+              {/* 🔺 สิ้นสุด Input type="date" 🔺 */}
             </div>
           </div>
         </CardContent>
       </Card>
+      
       {/* --- 10. 👈 ฟอร์มสำหรับ "เพิ่ม" สินค้า (Hybrid) --- */}
       <Card>
         <CardHeader>
@@ -501,7 +530,7 @@ export default function Purchase() {
                             handleUpdateItemQuantity(index, e.target.value)
                           }
                           min={1}
-                          className="h-9 w-20" // 👈 จำกัดความกว้าง
+                          className="h-9 w-20" 
                           disabled={isSubmitting}
                         />
                       </TableCell>

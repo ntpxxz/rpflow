@@ -1,4 +1,4 @@
-// app/components/Sidebar.tsx
+// components/Sidebar.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,8 +6,6 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
-
-// 1. 👈 Import ไอคอนจาก lucide-react
 import {
   LayoutDashboard,
   FilePlus,
@@ -16,6 +14,8 @@ import {
   PieChart,
   Settings,
   ClipboardList,
+  Box,
+  LogOut
 } from "lucide-react";
 
 interface Props {
@@ -23,9 +23,8 @@ interface Props {
   onClose: () => void;
 }
 
-// 2. 👈 เพิ่ม 'icon' property ให้กับ links
 const baseLinks = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Reports", href: "/reports", icon: PieChart },
 ];
 
@@ -58,14 +57,11 @@ export default function Sidebar({ open, onClose }: Props) {
     ...adminLinks,
   ];
 
-  // ... (ส่วน Logic for build ไม่ต้องแก้ไข) ...
-
   return (
     <>
-      {/* ... (Overlay for mobile คงเดิม) ... */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity no-print",
+          "fixed inset-0 bg-black/20 z-40 md:hidden transition-opacity no-print backdrop-blur-sm",
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -73,22 +69,30 @@ export default function Sidebar({ open, onClose }: Props) {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-64 bg-slate-900 text-white border-r border-slate-700 z-50 transform transition-transform no-print",
+          "fixed left-0 top-0 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border z-50 transform transition-transform duration-300 ease-in-out no-print flex flex-col",
           open ? "translate-x-0" : "-translate-x-full",
           "md:translate-x-0 md:static md:inset-auto"
         )}
-        aria-label="Sidebar"
       >
-        <div className="h-full flex flex-col">
-          {/* ... (Logo คงเดิม) ... */}
-          <div className="px-4 py-4 border-b border-slate-700">
-            <div className="text-lg font-semibold text-white">Purchase flow</div>
+        {/* Logo Area */}
+        <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
+          <div className="flex items-center gap-2">
+             <div className="w-8 h-8 bg-[#FF6B00] rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
+               <Box className="w-5 h-5" />
+             </div>
+             <span className="text-lg font-bold text-slate-900 tracking-tight">RPFlow</span>
           </div>
+        </div>
 
-          <nav className="p-4 space-y-1">
-            {links.map((l) => {
-              // 3. 👈 ดึง Icon component ออกมาจาก link
-              const Icon = l.icon; 
+        {/* Menu Items */}
+        <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+           <div className="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Main Menu
+           </div>
+           
+           {links.map((l) => {
+              const Icon = l.icon;
+              const isActive = pathname === l.href || pathname.startsWith(`${l.href}/`);
               
               return (
                 <Link
@@ -96,25 +100,28 @@ export default function Sidebar({ open, onClose }: Props) {
                   href={l.href}
                   onClick={onClose}
                   className={cn(
-                    buttonVariants({
-                      variant: "ghost",
-                    }),
-                    "w-full justify-start text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-700",
-                    pathname === l.href && "bg-slate-700 text-white"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
+                    isActive
+                      ? "bg-orange-50 text-[#FF6B00]" // Active State (Orange)
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900" // Inactive
                   )}
                 >
-                  {/* 4. 👈 เพิ่มไอคอนที่นี่ */}
-                  <Icon className="mr-3 h-5 w-5" /> 
+                  <Icon className={cn("w-5 h-5 transition-colors", isActive ? "text-[#FF6B00]" : "text-slate-400 group-hover:text-slate-600")} />
                   {l.name}
                 </Link>
               );
             })}
-          </nav>
+        </div>
 
-          {/* ... (Footer คงเดิม) ... */}
-          <div className="mt-auto p-4 border-t border-slate-700">
-            <div className="text-sm text-slate-400">Version 0.1</div>
-          </div>
+        {/* Footer Area */}
+        <div className="p-4 border-t border-sidebar-border/50">
+            <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors">
+                <LogOut className="w-5 h-5" />
+                Sign Out
+            </button>
+            <div className="mt-4 px-3 text-xs text-slate-400 text-center">
+               v1.0.0 • © 2025 RPFlow
+            </div>
         </div>
       </aside>
     </>

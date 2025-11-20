@@ -1,10 +1,10 @@
 // lib/inventoryPrisma.ts
-import { PrismaClient } from '@prisma/inventory-client';
+import { PrismaClient } from '@prisma/client';
 
 
 const inventoryPrisma = new PrismaClient({
   datasources: {
-    inventoryDb: { // ชื่อ datasource ที่ตั้งใน inventory.prisma
+    db: { // Default datasource name expected by Prisma
       url: process.env.INVENTORY_DATABASE_URL,
     },
   },

@@ -1,8 +1,11 @@
+/* app/globals.css */
 @import "tailwindcss";
 @import "tw-animate-css";
+
 * {
-  cursor: default
+  cursor: default;
 }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -45,103 +48,94 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* 🔻🔻 (แก้ไข) อัปเดต Light Theme (สไตล์ "Column") 🔻🔻 */
 :root {
-  --radius: 0.625rem; /* 10px */
+  --radius: 0.625rem;
 
-  /* Theme: "Column" (Dark Sidebar, Light Content) */
-  --background: oklch(0.98 0.003 240); /* Light Gray BG (~#f8f9fa) */
-  --foreground: oklch(0.2 0.01 264.21); /* Dark Text (~#181d2a) */
+  /* 🟢 Main Background: Light Gray (#F8F9FA) */
+  --background: oklch(0.97 0.002 240);
+  --foreground: oklch(0.2 0.01 264.21);
 
-  --card: oklch(1 0 0); /* White (~#ffffff) */
-  --card-foreground: oklch(0.2 0.01 264.21); /* Dark Text */
+  /* ⚪ Cards & Sidebar: Pure White */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.01 264.21);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.01 264.21);
 
-  --popover: oklch(1 0 0); /* White */
-  --popover-foreground: oklch(0.2 0.01 264.21); /* Dark Text */
-
-  --primary: oklch(0.5 0.2 265); /* Professional Blue (~#4f46e5) */
+  /* 🟠 Primary Color: Orange (#FF6B00) */
+  --primary: oklch(0.64 0.22 41.116); /* Vivid Orange */
   --primary-foreground: oklch(1 0 0); /* White Text */
 
-  --secondary: oklch(0.96 0.01 264.69); /* Lighter Gray (~#f3f4f6) */
-  --secondary-foreground: oklch(0.2 0.01 264.21); /* Dark Text */
+  --secondary: oklch(0.96 0.01 264.69);
+  --secondary-foreground: oklch(0.2 0.01 264.21);
 
-  --muted: oklch(0.96 0.01 264.69); /* Lighter Gray */
-  --muted-foreground: oklch(0.5 0.01 264.69); /* Gray Text */
+  --muted: oklch(0.96 0.01 264.69);
+  --muted-foreground: oklch(0.5 0.01 264.69);
 
-  --accent: oklch(0.98 0.01 264.69); /* Light Gray (Hover) */
-  --accent-foreground: oklch(0.2 0.01 264.21); /* Dark Text */
+  --accent: oklch(0.97 0.01 264.69); /* Very Light Gray for Hover */
+  --accent-foreground: oklch(0.2 0.01 264.21);
   
-  --destructive: oklch(0.577 0.245 27.325); /* Red */
+  --destructive: oklch(0.577 0.245 27.325);
 
-  --border: oklch(0.93 0.01 264.69); /* Light Gray Border (~#e5e7eb) */
-  --input: oklch(0.93 0.01 264.69); /* Input Border */
-  --ring: oklch(0.5 0.2 265); /* Blue Ring (Focus) */
-  
-  --chart-1: oklch(0.646 0.222 41.116);
+  --border: oklch(0.92 0.01 264.69);
+  --input: oklch(0.92 0.01 264.69);
+  --ring: oklch(0.64 0.22 41.116); /* Orange Ring */
+
+  /* Charts */
+  --chart-1: oklch(0.64 0.22 41.116); /* Orange */
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
 
-  /* 🔻 (ใหม่) Sidebar Colors (Dark) 🔻 */
-  --sidebar: oklch(0.22 0.01 264.21); /* Dark Gray (~#2a2f3a) */
-  --sidebar-foreground: oklch(0.9 0.01 264.69); /* Light Text (~#e0e0e0) */
-  --sidebar-primary: oklch(0.5 0.2 265); /* Professional Blue */
-  --sidebar-primary-foreground: oklch(1 0 0); /* White Text */
-  --sidebar-accent: oklch(0.3 0.01 264.21); /* Lighter Dark Gray (Hover) */
-  --sidebar-accent-foreground: oklch(1 0 0); /* White */
-  --sidebar-border: oklch(0.3 0.01 264.21); /* Lighter Dark Gray Border */
-  --sidebar-ring: oklch(0.5 0.2 265); /* Blue Ring */
+  /* ⚪ Sidebar Theme: White (Clean Style) */
+  --sidebar: oklch(1 0 0); 
+  --sidebar-foreground: oklch(0.35 0.01 264.69); /* Dark Gray Text */
+  --sidebar-primary: oklch(0.64 0.22 41.116); /* Orange */
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.97 0.01 264.69); /* Light Gray Hover */
+  --sidebar-accent-foreground: oklch(0.2 0.01 264.21);
+  --sidebar-border: oklch(0.92 0.01 264.69);
+  --sidebar-ring: oklch(0.64 0.22 41.116);
 }
 
-/* 🔻🔻 (แก้ไข) อัปเดต Dark Theme (สไตล์ "Column" Dark) 🔻🔻 */
+/* Dark Mode */
 .dark {
-  --radius: 0.625rem;
+  --background: oklch(0.15 0.01 264.21); 
+  --foreground: oklch(0.96 0.01 264.69); 
 
-  --background: oklch(0.15 0.01 264.21); /* Darkest BG (~#111827) */
-  --foreground: oklch(0.96 0.01 264.69); /* Light Text (~#e8ebed) */
+  --card: oklch(0.22 0.01 264.21); 
+  --card-foreground: oklch(0.96 0.01 264.69); 
 
-  --card: oklch(0.22 0.01 264.21); /* Dark Card (~#2a2f3a) */
-  --card-foreground: oklch(0.96 0.01 264.69); /* Light Text */
+  --popover: oklch(0.22 0.01 264.21); 
+  --popover-foreground: oklch(0.96 0.01 264.69); 
 
-  --popover: oklch(0.22 0.01 264.21); /* Dark Card */
-  --popover-foreground: oklch(0.96 0.01 264.69); /* Light Text */
+  --primary: oklch(0.64 0.22 41.116); /* Orange remains */
+  --primary-foreground: oklch(1 0 0); 
 
-  --primary: oklch(0.5 0.2 265); /* Professional Blue (~#4f46e5) */
-  --primary-foreground: oklch(1 0 0); /* White Text */
+  --secondary: oklch(0.3 0.01 264.21); 
+  --secondary-foreground: oklch(0.96 0.01 264.69); 
 
-  --secondary: oklch(0.3 0.01 264.21); /* Lighter Dark Gray */
-  --secondary-foreground: oklch(0.96 0.01 264.69); /* Light Text */
+  --muted: oklch(0.3 0.01 264.21); 
+  --muted-foreground: oklch(0.6 0.01 264.69); 
 
-  --muted: oklch(0.3 0.01 264.21); /* Lighter Dark Gray */
-  --muted-foreground: oklch(0.6 0.01 264.69); /* Gray Text */
-
-  --accent: oklch(0.3 0.01 264.21); /* Lighter Dark Gray (Hover) */
-  --accent-foreground: oklch(0.96 0.01 264.69); /* Light Text */
+  --accent: oklch(0.3 0.01 264.21); 
+  --accent-foreground: oklch(0.96 0.01 264.69); 
   
-  --destructive: oklch(0.704 0.191 22.216); /* Red */
+  --destructive: oklch(0.704 0.191 22.216); 
 
-  --border: oklch(0.3 0.01 264.21); /* Dark Border */
-  --input: oklch(0.3 0.01 264.21); /* Input Border */
-  --ring: oklch(0.5 0.2 265); /* Blue Ring */
+  --border: oklch(0.3 0.01 264.21); 
+  --input: oklch(0.3 0.01 264.21); 
+  --ring: oklch(0.64 0.22 41.116);
 
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-
-  /* 🔻 (ใหม่) Sidebar Colors (Dark) 🔻 */
-  --sidebar: oklch(0.22 0.01 264.21); /* Dark Gray (~#2a2f3a) */
-  --sidebar-foreground: oklch(0.9 0.01 264.69); /* Light Text (~#e0e0e0) */
-  --sidebar-primary: oklch(0.5 0.2 265); /* Professional Blue */
-  --sidebar-primary-foreground: oklch(1 0 0); /* White Text */
-  --sidebar-accent: oklch(0.3 0.01 264.21); /* Lighter Dark Gray (Hover) */
-  --sidebar-accent-foreground: oklch(1 0 0); /* White */
-  --sidebar-border: oklch(0.3 0.01 264.21); /* Lighter Dark Gray Border */
-  --sidebar-ring: oklch(0.5 0.2 265); /* Blue Ring */
+  --sidebar: oklch(0.22 0.01 264.21); 
+  --sidebar-foreground: oklch(0.9 0.01 264.69); 
+  --sidebar-primary: oklch(0.64 0.22 41.116); 
+  --sidebar-primary-foreground: oklch(1 0 0); 
+  --sidebar-accent: oklch(0.3 0.01 264.21); 
+  --sidebar-accent-foreground: oklch(1 0 0); 
+  --sidebar-border: oklch(0.3 0.01 264.21); 
+  --sidebar-ring: oklch(0.64 0.22 41.116); 
 }
-
 
 @layer base {
   * {
@@ -156,16 +150,11 @@
   .no-print {
     display: none !important;
   }
-  
   .printable-area {
     box-shadow: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    padding: 20mm !important;
-  }
-  
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    padding: 0 !important;
+    border: none !important;
   }
 }

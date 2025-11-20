@@ -1,4 +1,4 @@
-// app/api/purchase-orders/[poNumber]/send/route.ts
+// app/api/purchase-orders/[poNumber]/preview/route.ts
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
@@ -53,211 +53,95 @@ function generatePOHtml(po: any): string {
     (sum: number, item: any) => sum + item.quantity * Number(item.unitPrice),
     0
   );
+  const poNumber = po.poNumber;
 
   return `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      padding: 5px;
-      background: white;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 40px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #e5e7eb;
-    }
-    .header-left h1 {
-      font-size: 28px;
-      color: #111827;
-      margin-bottom: 8px;
-    }
-    .header-left h2 {
-      font-size: 24px;
-      color: #374151;
-    }
-    .header-right {
-      text-align: right;
-    }
-    .header-right .title {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
-    .header-right p {
-      font-size: 13px;
-      color: #6b7280;
-    }
-    .details-box {
-      background: #f9fafb;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 30px;
-    }
-    .details-box h3 {
-      font-size: 12px;
-      color: #6b7280;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
-    .details-box p {
-      font-size: 13px;
-      color: #374151;
-      margin-bottom: 5px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 10px;
-    }
-    thead {
-      background: #f3f4f6;
-    }
-    th {
-      padding: 12px;
-      text-align: left;
-      font-size: 13px;
-      font-weight: 600;
-      color: #374151;
-      border: 1px solid #e5e7eb;
-    }
-    th.text-right {
-      text-align: right;
-    }
-    td {
-      padding: 12px;
-      font-size: 13px;
-      color: #1f2937;
-      border: 1px solid #e5e7eb;
-      vertical-align: middle;
-    }
-    td.text-right {
-      text-align: right;
-    }
-    td.font-medium {
-      font-weight: 500;
-    }
-    .item-image {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 4px;
-      display: block;
-    }
-    .no-image {
-      width: 60px;
-      height: 60px;
-      background: #f3f4f6;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 4px;
-      color: #9ca3af;
-      font-size: 10px;
-    }
-    .footer {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 30px;
-    }
-    .totals {
-      width: 300px;
-    }
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 13px;
-    }
-    .total-row.final {
-      border-top: 2px solid #d1d5db;
-      margin-top: 10px;
-      padding-top: 10px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-    .thank-you {
-      text-align: center;
-      margin-top: 60px;
-      font-size: 11px;
-      color: #9ca3af;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-left">
-      <h1>PURCHASE ORDER</h1>
-      <h2>${po.poNumber}</h2>
-      <p><strong>Sent Date:</strong> ${
-      po.sentAt ? format(new Date(po.sentAt), "dd MMM yyyy") : "N/A"
-    }</p>
-    </div>
-    <div class="header-right">
-      <div class="title">IOT SECTION</div>
-      <p>NMB, Spindle motor division</p>
-      <p>Tel: 2472</p>
-    </div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Item Name</th>
-        <th>Image</th>
-        <th class="text-right">Qty</th>
-        <th class="text-right">Unit Price</th>
-        <th class="text-right">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${po.items
-        .map((item: any) => {
-          return `
-        <tr>
-          <td class="font-medium">${item.itemName}</td>
-          <td>
-            ${
-              item.imageUrl
-                ? `<img src="${item.imageUrl}" alt="${item.itemName}" class="item-image" />`
-                : '<div class="no-image">No Image</div>'
-            }
-          </td>
-          <td class="text-right">${item.quantity}</td>
-          <td class="text-right">฿${Number(item.unitPrice).toFixed(2)}</td>
-          <td class="text-right font-medium">฿${(
-            item.quantity * Number(item.unitPrice)
-          ).toFixed(2)}</td>
-        </tr>
-      `;
-        })
-        .join("")}
-    </tbody>
-  </table>
-
-  <div class="footer">
-    <div class="totals">
-      <div class="total-row">
-        <span>Subtotal:</span>
-        <span>฿${totalAmount.toFixed(2)}</span>
-      </div>
-      <div class="total-row final">
-        <span>Total Amount:</span>
-        <span>฿${totalAmount.toFixed(2)}</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="thank-you">
-    Thank you for your business!
-  </div>
-</body>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @page { margin: 10mm 15mm; }
+          body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #333; line-height: 1.4; }
+          .header-container { display: flex; justify-content: space-between; align-items: top; margin-bottom: 20px; }
+          .company-info h1 { margin: 0 0 5px 0; font-size: 20px; color: #000; text-transform: uppercase; }
+          .company-info p { margin: 0; font-size: 11px; color: #555; }
+          .doc-title { text-align: right; }
+          .doc-title h2 { margin: 0; font-size: 24px; color: #1a56db; text-transform: uppercase; letter-spacing: 1px; }
+          .doc-title span { display: block; font-size: 12px; color: #666; margin-top: 4px; }
+          .info-grid { display: table; width: 100%; margin-bottom: 20px; border-collapse: separate; border-spacing: 10px 0; }
+          .info-col { display: table-cell; width: 48%; vertical-align: top; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background-color: #fcfcfc; }
+          .info-label { font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 5px; display: block; }
+          .info-line { border-bottom: 1px dashed #ccc; padding-bottom: 2px; margin-bottom: 4px; min-height: 16px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { background-color: #f1f5f9; color: #1e293b; font-weight: 700; text-align: left; padding: 10px; border-bottom: 2px solid #cbd5e1; font-size: 11px; text-transform: uppercase; }
+          td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+          .img-box { width: 48px; height: 48px; object-fit: contain; border: 1px solid #eee; padding: 2px; background: white; border-radius: 4px; }
+          .footer-container { margin-top: 40px; page-break-inside: avoid; }
+          .terms-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 11px; background-color: #fff; }
+          .signature-grid { display: table; width: 100%; border-spacing: 20px 0; }
+          .sig-box { display: table-cell; width: 50%; border-top: 1px solid #333; padding-top: 10px; text-align: center; }
+          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
+        </style>
+      </head>       
+      <body>
+        <div class="header-container">
+                <div class="company-info">
+                    <h1>MinebeaMitsumi (Thailand)</h1>
+                    <p>IOT Section, Spindle Motor Division</p>
+                    <p>1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
+                    <p>Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
+                </div>
+                    <div class="doc-title">
+                    <h2>Request For Order</h2>  
+                    <span>Document No: <strong>${poNumber}</strong></span>
+                    <span>Date: <strong>${format(new Date(), "dd MMM yyyy")}</strong></span>
+                </div>              
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th width="40" style="text-align:center;">#</th>
+              <th width="60" style="text-align:start;">Item</th>
+              <th></th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Unit Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${po.items
+              .map((item: { itemName: any; imageUrl: any; quantity: number; unitPrice: any; }, index: number) => {
+                return `
+              <tr>
+                <td style="text-align:center; color:#666;">${index + 1}</td>
+                <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : "-"}</td>
+                <td>
+                    <span style="font-weight:bold; display:block;">${item.itemName}</span>
+                </td>
+                <td class="text-right">${item.quantity}</td>
+                <td class="text-right">฿${Number(item.unitPrice).toFixed(2)}</td>
+                <td class="text-right font-medium">฿${(
+                  item.quantity * Number(item.unitPrice)
+                ).toFixed(2)}</td>
+              </tr>
+            `;
+              })
+              .join("")}
+              <tr>
+                <td colspan="4" style="text-align:right; font-weight:bold;"></td>
+                <td colspan="1" style="text-align:left; font-weight:bold;">Total:</td>
+                <td colspan="1" class="text-right"style="font-weight:bold; padding-top:15px;">฿${totalAmount.toFixed(2)}</td>
+                
+             </tr>
+          </tbody>
+        </table>
+        <div class="footer">         
+        </div>
+        <div class="thank-you ote" style="text-align:center; font-size:12px; color:#555; margin-top:30px;">
+          Thank you for your business!
+        </div>
+      </body>
 </html>
   `;
 }

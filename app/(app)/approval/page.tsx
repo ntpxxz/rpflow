@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"; 
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Loader2, Check, X, FileClock, History, Ban, ChevronLeft, ChevronRight } from "lucide-react"; // 👈 เพิ่มไอคอน Chevron
+import { Loader2, Check, X, FileClock, History, Ban, ChevronLeft, ChevronRight } from "lucide-react"; 
 
 import {
   Tabs,
@@ -40,6 +40,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils"; // 👈 เพิ่ม cn
 
 type PendingApproval = ApprovalStep & {
   request: PurchaseRequest & {
@@ -49,7 +50,6 @@ type PendingApproval = ApprovalStep & {
   approver: User;
 };
 
-// 🔻 Constants สำหรับ Pagination
 const ITEMS_PER_PAGE = 10;
 
 export default function Approval() {
@@ -62,7 +62,6 @@ export default function Approval() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentAction, setCurrentAction] = useState<{ stepId: string; action: "Approved" | "Rejected"; } | null>(null);
   
-  // 🔻 State สำหรับ Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -91,7 +90,6 @@ export default function Approval() {
     allSteps.filter(step => step.status.toLowerCase() !== 'pending')
   , [allSteps]);
 
-  // 🔻 Logic สำหรับ Pagination (Waiting Tab)
   const paginatedPendingSteps = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -99,7 +97,6 @@ export default function Approval() {
   }, [pendingSteps, currentPage]);
 
   const totalPages = Math.ceil(pendingSteps.length / ITEMS_PER_PAGE);
-  // 🔺 สิ้นสุด Logic Pagination 🔺
 
   const handleOpenModal = (
     stepId: string,
@@ -143,12 +140,13 @@ export default function Approval() {
     }
   };
 
+  // 🟢 ปรับปรุง Status Variant ให้ใช้สี Theme (Primary, Destructive, Secondary)
   const getApprovalStatusVariant = (status: string | null | undefined): "default" | "secondary" | "destructive" | "outline" => {
     if (!status) return "outline";
     switch (status.toLowerCase()) {
-      case "pending": return "secondary";
-      case "approved": return "default";
-      case "rejected": return "destructive";
+      case "pending": return "secondary"; // สีเทา/เหลืองอ่อน
+      case "approved": return "default"; // สี Primary (ส้ม)
+      case "rejected": return "destructive"; // สีแดง
       default: return "outline";
     }
   };
@@ -157,7 +155,7 @@ export default function Approval() {
     router.push(`/purchase-requests/${requestId}`);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <>
@@ -165,97 +163,89 @@ export default function Approval() {
         <h1 className="text-2xl font-bold">Approval Requests</h1>
       
         <Tabs defaultValue="waiting" className="w-full">
-          {/* TabsList Minimal Underline Style */}
-          <TabsList className="h-auto w-full justify-start p-0 mb-4 bg-transparent border-b border-gray-200 dark:border-zinc-700">
+          {/* 🟢 TabsList: ใช้ Primary Color เป็นตัว Active */}
+          <TabsList className="h-auto w-full justify-start p-0 mb-4 bg-transparent border-b border-border">
             <TabsTrigger 
               value="waiting" 
-              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-base font-medium transition-all text-muted-foreground 
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-sm font-medium transition-all text-muted-foreground 
                          data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none 
-                         dark:data-[state=active]:border-primary dark:data-[state=active]:text-white dark:data-[state=active]:bg-transparent 
-                         rounded-none hover:text-foreground dark:hover:text-white"
+                         rounded-none hover:text-foreground"
             >
               <FileClock className="mr-2 h-4 w-4" />
               Waiting for Approval ({pendingSteps.length})
             </TabsTrigger>
             <TabsTrigger 
               value="done"
-              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-base font-medium transition-all text-muted-foreground
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 text-sm font-medium transition-all text-muted-foreground
                          data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none 
-                         dark:data-[state=active]:border-primary dark:data-[state=active]:text-white dark:data-[state=active]:bg-transparent 
-                         rounded-none hover:text-foreground dark:hover:text-white"
+                         rounded-none hover:text-foreground"
             >
               <History className="mr-2 h-4 w-4" />
               History ({doneSteps.length})
             </TabsTrigger>
           </TabsList>
           
-          {/* --- Tab: Waiting (มี Pagination) --- */}
+          {/* --- Tab: Waiting --- */}
           <TabsContent value="waiting">
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle>Requests Awaiting My Action</CardTitle>
+            <Card className="mt-4 border-none shadow-sm">
+              <CardHeader className="bg-secondary/30 border-b border-border py-3 px-6">
+                <CardTitle className="text-base font-semibold">Requests Awaiting My Action</CardTitle>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
-                    {/* 🔻 Table Header (คงเดิม) 🔻 */}
-                    <TableRow>
-                      <TableHead>Request ID</TableHead>
-                      <TableHead>Requestor</TableHead>
-                      <TableHead className="text-right">Total Amount</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="bg-secondary/20 hover:bg-secondary/20">
+                      <TableHead className="pl-6 text-xs font-bold text-muted-foreground uppercase">Request ID</TableHead>
+                      <TableHead className="text-xs font-bold text-muted-foreground uppercase">Requestor</TableHead>
+                      <TableHead className="text-xs font-bold text-muted-foreground uppercase">Total Amount</TableHead>
+                      <TableHead className="text-xs font-bold text-muted-foreground uppercase">Items</TableHead>
+                      <TableHead className="text-right pr-6 text-xs font-bold text-muted-foreground uppercase">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {/* 🔻 ใช้ paginatedPendingSteps 🔻 */}
                     {paginatedPendingSteps.length === 0 ? (
-                       <TableRow><TableCell colSpan={5} className="text-center h-24">No pending approvals on this page.</TableCell></TableRow>
+                       <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No pending approvals on this page.</TableCell></TableRow>
                     ) : (
                       paginatedPendingSteps.map((step) => (
                         <TableRow 
                           key={step.id} 
-                          className="cursor-pointer hover:bg-muted/50"
+                          className="cursor-pointer hover:bg-accent/50"
                           onClick={() => handleRowClick(step.requestId)}
                         >
-                          <TableCell>{step.request.id}</TableCell>
+                          <TableCell className="pl-6 font-medium">{step.request.id}</TableCell>
                           <TableCell>{step.request.user.name}</TableCell>
-                          <TableCell className="text-right">
-                            ฿{Number(step.request.totalAmount).toFixed(2)}
+                          <TableCell className="text-right font-medium">
+                            ฿{Number(step.request.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>{step.request.items.length}</TableCell>
                           
-                          {/* ปุ่ม Action เป็น Icon (Ghost Variant) */}
-                          <TableCell className="text-right space-x-2">
+                          <TableCell className="text-right space-x-2 pr-6">
                             {actionLoading === step.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mx-auto mr-1" />
+                              <Loader2 className="h-4 w-4 animate-spin ml-auto text-primary" />
                             ) : (
                               <>
-                                {/* Reject Button: Ghost + Red Icon */}
+                                {/* Reject Button: Destructive Color */}
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
+                                  size="sm"
+                                  variant="destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenModal(step.id, "Rejected");
                                   }}
-                                  className="text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
-                                  title="Reject Request"
+                                  className="h-7 text-xs"
                                 >
-                                  <Ban className="h-4 w-4" /> 
+                                  Reject
                                 </Button>
-                                {/* Approve Button: Ghost + Primary Color Icon */}
+                                {/* Approve Button: Primary Color (Theme Orange) */}
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenModal(step.id, "Approved");
                                   }}
-                                  className="text-primary hover:bg-primary/10 dark:hover:bg-primary/20"
-                                  title="Approve Request" 
+                                  className="h-7 text-xs bg-primary hover:bg-primary/90 text-primary-foreground" 
                                 >
-                                  <Check className="h-4 w-4" />
+                                  Approve
                                 </Button>
                               </>
                             )}
@@ -266,9 +256,9 @@ export default function Approval() {
                   </TableBody>
                 </Table>
 
-                {/* 🔻🔻 Pagination Controls 🔻🔻 */}
-                <div className="flex items-center justify-between space-x-2 py-4">
-                  <span className="text-sm text-muted-foreground">
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between space-x-2 py-4 px-6 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
                     Page {currentPage} of {totalPages} (Total {pendingSteps.length}{" "}
                     pending requests)
                   </span>
@@ -276,6 +266,7 @@ export default function Approval() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-8 text-xs"
                       onClick={() =>
                         setCurrentPage((prev) => Math.max(prev - 1, 1))
                       }
@@ -287,6 +278,7 @@ export default function Approval() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-8 text-xs"
                       onClick={() =>
                         setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                       }
@@ -297,56 +289,53 @@ export default function Approval() {
                     </Button>
                   </div>
                 </div>
-                {/* 🔺🔺 End Pagination Controls 🔺🔺 */}
-
               </CardContent>
             </Card>
           </TabsContent>
           
-          {/* --- Tab: Done (History - ไม่มี Pagination) --- */}
+          {/* --- Tab: History (Done) --- */}
           <TabsContent value="done">
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle>Approval History</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <Table>
-                  {/* ... (ตาราง History เหมือนเดิม) ... */}
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request ID</TableHead>
-                      <TableHead>Final Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Comment</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {doneSteps.length === 0 ? (
-                       <TableRow><TableCell colSpan={4} className="text-center h-24">No approval history.</TableCell></TableRow>
-                    ) : (
-                      doneSteps.map((step) => (
-                         <TableRow 
-                          key={step.id} 
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleRowClick(step.requestId)}
-                        >
-                          <TableCell>{step.request.id}</TableCell>
-                          <TableCell>
-                            <Badge variant={getApprovalStatusVariant(step.status)}>
-                              {step.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {step.approvedAt ? format(new Date(step.approvedAt), 'P') : '-'}
-                          </TableCell>
-                          <TableCell>{step.comment || '-'}</TableCell>
+             <Card className="mt-4 border-none shadow-sm">
+                <CardHeader className="bg-secondary/30 border-b border-border py-3 px-6">
+                    <CardTitle className="text-base font-semibold">Approval History</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-secondary/20 hover:bg-secondary/20">
+                          <TableHead className="text-xs font-bold text-muted-foreground uppercase">Request ID</TableHead>
+                          <TableHead className="text-xs font-bold text-muted-foreground uppercase">Final Status</TableHead>
+                          <TableHead className="text-xs font-bold text-muted-foreground uppercase">Date</TableHead>
+                          <TableHead className="text-xs font-bold text-muted-foreground uppercase">Comment</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {doneSteps.length === 0 ? (
+                           <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No approval history.</TableCell></TableRow>
+                        ) : (
+                          doneSteps.map((step) => (
+                             <TableRow 
+                              key={step.id} 
+                              className="cursor-pointer hover:bg-accent/50"
+                              onClick={() => handleRowClick(step.requestId)}
+                            >
+                              <TableCell className="font-medium">{step.request.id}</TableCell>
+                              <TableCell>
+                                <Badge variant={getApprovalStatusVariant(step.status)} className="capitalize shadow-none">
+                                  {step.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {step.approvedAt ? format(new Date(step.approvedAt), 'dd MMM yyyy') : '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{step.comment || '-'}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+             </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -383,6 +372,7 @@ export default function Approval() {
                 Cancel
               </Button>
             </DialogClose>
+            {/* 🟢 Approve/Reject Button (ใช้ Primary/Destructive) */}
             <Button 
               type="button" 
               onClick={handleConfirmAction} 

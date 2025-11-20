@@ -2,41 +2,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateNextPoNumber } from "@/lib/poNumberGenerator";
-// import { getServerSession } from "next-auth";
-// import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export async function POST(req: NextRequest) {
   try {
     const actorId = process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001";
 
-    // 1.รับ "items" (Array of objects) แทน "requestItemIds" 🔻
-    const { items } = await req.json(); //{ requestItemIds }
+    // 1. รับ "items" (Array of objects) 
+    // 🔻 (แก้ไข) คาดหวัง unitPrice และ quantity ใน payload ด้วย
+    const { items } = await req.json(); 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { message: "items (Array of {id, quotationNumber}) is required" },
+        { message: "items (Array of {id, quotationNumber, unitPrice, quantity}) is required" }, 
         { status: 400 }
       );
     }
 
-    // 2. 🔻 (ใหม่) สร้าง Map และ Array ของ IDs จาก "items" 🔻
-    
-    // สร้าง Map เพื่อเก็บ { itemId -> quotationNumber }
-    const quotationMap = new Map<string, string | null>(
-      items.map((item: { id: string; quotationNumber: string | null }) => [
+    // 2. สร้าง Map เพื่อเก็บ Item Details จาก Frontend
+    const itemDetailsMap = new Map<string, { quotationNumber: string | null, unitPrice: number | undefined, quantity?: number }>(
+      items.map((item: { id: string; quotationNumber: string | null; unitPrice?: number; quantity?: number }) => [
         item.id,
-        item.quotationNumber || null,
+        { 
+            quotationNumber: item.quotationNumber || null,
+            unitPrice: item.unitPrice, 
+            quantity: item.quantity // 🟢 รับ Quantity ที่แก้ไขแล้ว
+        },
       ])
     );
     
-    // ดึงเฉพาะ IDs ออกมาเป็น Array เพื่อใช้ในการ query
     const requestItemIds = items.map((item: { id: string }) => item.id);
-    // 2. 🔺 (สิ้นสุด) 🔺
 
     const newPoNumber = await generateNextPoNumber();
 
     const newPurchaseOrder = await prisma.$transaction(async (tx) => {
       
-      // 2.1 ดึง RequestItems
+      // 2.1 ดึง RequestItems ต้นทาง
       const itemsToOrder = await tx.requestItem.findMany({
         where: {
           id: { in: requestItemIds }, 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
             status: "approved",
           },
           quantity: {
-            gt: prisma.requestItem.fields.quantityOrdered,
+            gt: tx.requestItem.fields.quantityOrdered,
           },
         },
         include: {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 2.2 สร้าง PO (Header) - (เหมือนเดิม)
+      // 2.2 สร้าง PO (Header)
       const po = await tx.purchaseOrder.create({
         data: {
           poNumber: newPoNumber,
@@ -69,35 +69,48 @@ export async function POST(req: NextRequest) {
 
       // 2.3 สร้าง PO Items (วนลูป)
       for (const item of itemsToOrder) {
-        const quantityToOrder = item.quantity - item.quantityOrdered;
+        const details = itemDetailsMap.get(item.id);
+        
+        // 🟢 FIX: ใช้ Quantity จาก Frontend ถ้ามี, ถ้าไม่มีใช้ Quantity ที่เหลือจาก DB
+        const maxAvailableQuantity = item.quantity - item.quantityOrdered;
+        
+        const quantityToOrder = 
+            (details?.quantity !== undefined && details.quantity <= maxAvailableQuantity) 
+            ? details.quantity 
+            : maxAvailableQuantity; // ใช้ QTY ที่ส่งมา แต่ต้องไม่เกินที่เหลือ
 
-        // 3.เพิ่ม "quotationNumber" ตอนสร้าง PO Item 🔻
+        // ใช้ราคาที่ส่งมาจาก Frontend ถ้ามี
+        const finalUnitPrice = 
+            details?.unitPrice !== undefined ? 
+            new Decimal(details.unitPrice) : 
+            item.unitPrice; 
+
+        // 2.4 สร้าง PurchaseOrderItem
         await tx.purchaseOrderItem.create({
           data: {
             poId: po.id,
             itemName: item.itemName,
             detail: item.detail,
             imageUrl: item.imageUrl,
-            quantity: quantityToOrder,
-            unitPrice: item.unitPrice,
+            quantity: quantityToOrder, // 🟢 ใช้ Quantity ที่แก้ไขแล้ว
+            unitPrice: finalUnitPrice,
             requestItemId: item.id,
-            quotationNumber: quotationMap.get(item.id) || null, // 👈 (ดึงค่าจาก Map)
+            quotationNumber: details?.quotationNumber || null,
           },
         });
-        // 3. 🔺 (สิ้นสุด) 🔺
 
-        // 2.4 อัปเดต RequestItem ต้นทาง (เหมือนเดิม)
+        // 2.5 อัปเดต RequestItem ต้นทาง
         await tx.requestItem.update({
           where: { id: item.id },
           data: {
             quantityOrdered: {
-              increment: quantityToOrder,
+              increment: quantityToOrder, // 🟢 ใช้ Quantity ที่แก้ไขแล้ว
             },
           },
         });
       }
 
-      // 2.5 อัปเดตสถานะ PR แม่ (เหมือนเดิม)
+      // ... (อัปเดตสถานะ PR แม่ และ History - เหมือนเดิม)
       const relatedRequestIds = [
         ...new Set(itemsToOrder.map((item) => item.requestId)),
       ];
@@ -119,7 +132,6 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // 2.6 สร้าง History (เหมือนเดิม)
         await tx.requestHistory.create({
           data: {
             requestId: reqId,

@@ -142,7 +142,8 @@ export async function POST(req: Request) {
     const requesterName = formData.get("requesterName") as string;
     const requestType = formData.get("requestType") as string;
     const itemsJson = formData.get("items") as string;
-    const dueDate = formData.get("dueDate") as string | null;
+    // 🔻 (แก้ไข) รับ Due Date จาก FormData
+    const dueDate = formData.get("dueDate") as string | null; 
     // --- Validation ---
     if (!requesterName || !requestType || !itemsJson) { 
       return new NextResponse(JSON.stringify({ message: "Missing required fields" }), { status: 400 });
@@ -151,7 +152,12 @@ export async function POST(req: Request) {
     if (!validatedRequestType.success) { 
       return new NextResponse(JSON.stringify({ message: "Invalid request type" }), { status: 400 });
     }
+    
+    // 🔻 (แก้ไข) Logic การตั้ง Due Date
     let finalDueDate: Date;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // รีเซ็ตเวลาเป็น 00:00:00
+    
     if (validatedRequestType.data === "NORMAL") {
       finalDueDate = new Date();
       finalDueDate.setDate(finalDueDate.getDate() + 7); // 👈 Auto 7 วัน
@@ -161,9 +167,16 @@ export async function POST(req: Request) {
         return new NextResponse(JSON.stringify({ message: "Due date is required for Urgent/Project" }), { status: 400 });
       }
       finalDueDate = new Date(dueDate);
+      // ตรวจสอบ Due Date ต้องไม่เป็นอดีต (ไม่ควรเกิดที่ Backend ถ้า Frontend เช็คดีแล้ว)
+      if (finalDueDate.getTime() < today.getTime()) {
+         return new NextResponse(JSON.stringify({ message: "Due Date cannot be in the past." }), { status: 400 });
+      }
     }
+    // 🔺 (สิ้นสุดการแก้ไข Due Date Logic) 🔺
+
 
     let parsedItems: ParsedItem[];
+    // ... (ส่วน Parse items และ Handle File Uploads เหมือนเดิม) ...
     try {
       const rawItems = JSON.parse(itemsJson);
       parsedItems = itemsArraySchema.parse(rawItems); 
@@ -203,7 +216,7 @@ export async function POST(req: Request) {
           type: validatedRequestType.data,
           status: "pending", // (lowercase ถูกต้อง)
           totalAmount: totalAmount, 
-          dueDate: finalDueDate,
+          dueDate: finalDueDate, // 👈 (แก้ไข) ใช้ finalDueDate ที่คำนวณแล้ว
           items: {
             create: itemsWithData.map(item => ({
               itemName: item.itemName,         
@@ -216,7 +229,7 @@ export async function POST(req: Request) {
         },
         include: { items: true },
       });
-      // 6.2. สร้าง Approval Step ทันที (ถูกต้อง)
+      // 6.2. สร้าง Approval Step ทันที (เหมือนเดิม)
       await tx.approvalStep.create({
         data: {
           requestId: newRequestId,
@@ -226,7 +239,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // 6.3. สร้าง History ทันที (ถูกต้อง)
+      // 6.3. สร้าง History ทันที (เหมือนเดิม)
       await tx.requestHistory.create({
         data: {
           requestId: newRequestId,
@@ -239,6 +252,7 @@ export async function POST(req: Request) {
       
       return pr;
     });
+    // ... (ส่วนการส่ง Email แจ้ง Approver - เหมือนเดิม) ...
     try {
       // ⚠️ TODO: เปลี่ยนอีเมลนี้เป็นอีเมล Approver ตัวจริงของคุณ
       const APPROVER_EMAIL = "nattapon.m@minebea.co.th"; //
@@ -270,7 +284,7 @@ export async function POST(req: Request) {
     return NextResponse.json(purchaseRequest, { status: 201 });
 
   } catch (error: any) {
-    // ... (Error handling) ...
+    // ... (Error handling - เหมือนเดิม) ...
     console.error("[PURCHASE_REQUEST_POST]", error);
     if (error instanceof z.ZodError) {
       return new NextResponse(JSON.stringify(error.issues), { status: 400 });

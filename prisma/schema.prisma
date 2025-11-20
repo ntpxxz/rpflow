@@ -70,7 +70,7 @@ model PurchaseRequest {
   totalAmount Decimal? @map("total_amount")
 
   requesterName String
-  type          RequestTypecd
+  type          RequestType
   dueDate   DateTime?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -94,11 +94,26 @@ model RequestItem {
   imageUrl  String?
   quantity  Int
   unitPrice Decimal  @db.Decimal(10, 2) 
+  
+  isQuotationRequested Boolean @default(false) @map("is_quotation_requested")
+  rfq       RequestForQuotation? @relation(fields: [rfqId], references: [id])
+  rfqId     String?              @map("rfq_id")
 
   request   PurchaseRequest @relation(fields: [requestId], references: [id])
   requestId String
   quantityOrdered Int @default(0) @map("quantity_ordered")
   poItems PurchaseOrderItem[]
+}
+
+model RequestForQuotation {
+  id        String   @id @default(cuid())
+  rfqNumber String   @unique @map("rfq_number") // เช่น RPQ-1120250001
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items     RequestItem[] // 1 RFQ มีหลาย Items
+  
+  @@map("request_for_quotations")
 }
 
 // 
