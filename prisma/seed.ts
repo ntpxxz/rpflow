@@ -1,61 +1,81 @@
 // prisma/seed.ts
-import { PrismaClient, UserRole } from '@prisma/client'; // 👈 Import UserRole
-
-// 1. ⚠️ ใช้ path ไปยัง prisma client ของคุณ
-// (ถ้าไฟล์ seed.ts อยู่ใน /prisma และ lib อยู่ที่ root, path นี้ควรจะถูก)
+import { PrismaClient, UserRole } from '@prisma/client';
 import { prisma as db } from '../lib/prisma';
+import * as bcrypt from 'bcryptjs'; // 👈 1. Import bcrypt
 
 async function main() {
   console.log("Start seeding...");
 
-  // --- สร้าง User ตัวอย่าง ---
+  // 👈 2. เตรียม Hash Password (ใช้ 123456 เหมือนกันหมดเพื่อง่ายต่อการเทส)
+  const hashedPassword = await bcrypt.hash('123456', 10);
+
+  // --- 1. Requester ---
   const requesterUser = await db.user.upsert({
-    where: { email: 'requester@example.com' }, // 👈 ใช้ email เป็น unique key
-    update: {},
+    where: { email: 'requester@example.com' },
+    update: { 
+      role: UserRole.Requester,
+      password: hashedPassword // อัปเดตรหัสผ่านด้วยหากรันซ้ำ
+    }, 
     create: {
-      id: 'user_requester_001', // กำหนด ID หรือปล่อยให้ Prisma สร้าง cuid()
+      id: 'user_requester_001', 
       name: 'Test Requester',
       email: 'requester@example.com',
-      role: UserRole.REQUESTER, // 👈 กำหนด Role
+      password: hashedPassword, // 👈 ใส่รหัสผ่าน
+      role: UserRole.Requester, 
     },
   });
-  console.log(`Created requester user: ${requesterUser.email} (Role: ${requesterUser.role})`);
+  console.log(`Created: ${requesterUser.email} (Pass: 123456)`);
 
+  // --- 2. Approver ---
   const approverUser = await db.user.upsert({
     where: { email: 'approver@example.com' },
-    update: {},
+    update: { 
+      role: UserRole.Approver,
+      password: hashedPassword 
+    },
     create: {
       id: 'user_approver_001',
       name: 'Test Approver',
       email: 'approver@example.com',
-      role: UserRole.APPROVER, // 👈 กำหนด Role
+      password: hashedPassword, // 👈 ใส่รหัสผ่าน
+      role: UserRole.Approver, 
     },
   });
-  console.log(`Created approver user: ${approverUser.email} (Role: ${approverUser.role})`);
+  console.log(`Created: ${approverUser.email} (Pass: 123456)`);
 
+  // --- 3. Purchaser ---
   const purchaserUser = await db.user.upsert({
     where: { email: 'purchaser@example.com' },
-    update: {},
+    update: { 
+      role: UserRole.Purchaser,
+      password: hashedPassword 
+    },
     create: {
       id: 'user_purchaser_001',
       name: 'Test Purchaser',
       email: 'purchaser@example.com',
-      role: UserRole.PURCHASER, // 👈 กำหนด Role
+      password: hashedPassword, // 👈 ใส่รหัสผ่าน
+      role: UserRole.Purchaser, 
     },
   });
-  console.log(`Created purchaser user: ${purchaserUser.email} (Role: ${purchaserUser.role})`);
+  console.log(`Created: ${purchaserUser.email} (Pass: 123456)`);
 
+  // --- 4. Admin ---
   const adminUser = await db.user.upsert({
     where: { email: 'admin@example.com' },
-    update: {},
+    update: { 
+      role: UserRole.Admin,
+      password: hashedPassword 
+    },
     create: {
       id: 'user_admin_001',
       name: 'Test Admin',
       email: 'admin@example.com',
-      role: UserRole.ADMIN, // 👈 กำหนด Role
+      password: hashedPassword, // 👈 ใส่รหัสผ่าน
+      role: UserRole.Admin, 
     },
   });
-  console.log(`Created admin user: ${adminUser.email} (Role: ${adminUser.role})`);
+  console.log(`Created: ${adminUser.email} (Pass: 123456)`);
 
   console.log("Seeding finished.");
 }

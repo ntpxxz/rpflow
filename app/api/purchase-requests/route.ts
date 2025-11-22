@@ -6,7 +6,12 @@ import { writeFile } from "fs/promises";
 import { join } from "path";
 import { generateNextRequestId } from "@/lib/idGenerator";
 import nodemailer from "nodemailer";
-// (Zod Schemas - ถูกต้อง)
+import { getServerSession } from "next-auth"; // 👈 Import เพิ่ม
+import { authOptions } from "@/lib/auth";     // 👈 Import เพิ่ม
+
+// ... (ส่วน Zod Schema และ Email Function เหมือนเดิม ไม่ต้องแก้) ...
+
+// (Zod Schemas)
 const itemSchema = z.object({
   itemName: z.string().min(1, "Item name is required"), 
   detail: z.string().optional(),
@@ -27,13 +32,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ... (ฟังก์ชัน generateApprovalEmailHtml เหมือนเดิม) ...
 function generateApprovalEmailHtml(
   newRequest: { id: string; requesterName: string },
   total: number,
   items: (ParsedItem & { imageUrl?: string })[],
   requestType: "NORMAL" | "URGENT" | "PROJECT"
-): { subject: string; html: string } {
-  let typeStyles = "";
+) {
+    // ... (Code เดิมในฟังก์ชันนี้)
+     let typeStyles = "";
   let typeHeaderText = "";
   let subjectPrefix = "";
 
@@ -93,8 +100,9 @@ function generateApprovalEmailHtml(
   `;
   return {subject, html}
 }
-// 
 
+
+// GET Function (เหมือนเดิม)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -110,73 +118,70 @@ export async function GET(req: NextRequest) {
       include: {
         user: true,
         items: true,
-        approvalSteps: true,
+        approvalSteps: {
+            include: { approver: true } // include approver details
+        },
       },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(requests);
   } catch (error) {
     console.error("[PURCHASE_REQUEST_GET]", error);
-    if (error instanceof Error && error.message.includes("Invalid value for argument `status`")) {
-      return new NextResponse(JSON.stringify({ message: `Invalid status parameter: ${status}` }), { status: 400 });
-    }
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ message: "Internal Error" }, { status: 500 });
   }
 }
 
+// POST Function (แก้ไขส่วน Auth)
 export async function POST(req: Request) {
   try {
-    // --- Auth - Test User IDs ---
-    const userId = process.env.TEST_REQUESTER_ID; 
-    if (!userId) { 
-      console.error("Error: TEST_REQUESTER_ID is not set.");
-      return new NextResponse("Internal Server Error: Missing test user configuration", { status: 500 });
+    // 1. 🟢 Get Session
+    const session = await getServerSession(authOptions);
+    
+    // 2. 🟢 Check if user is logged in
+    if (!session || !session.user) {
+        return new NextResponse(JSON.stringify({ message: "Unauthorized. Please login." }), { status: 401 });
     }
-    const managerApproverId = process.env.TEST_APPROVER_ID || "clx...."; // (ใช้ ID ชั่วคราว)
-    if (!managerApproverId) {
-      console.error("Error: TEST_APPROVER_ID is not set.");
-      return new NextResponse("Internal Server Error: Missing approver configuration", { status: 500 });
-    }
-    // --- Parse FormData ---
+
+    // 3. 🟢 Use ID from Session
+    const userId = (session.user as any).id;
+    
+    // Approver ยังคง Hardcode สำหรับ Demo หรือจะเปลี่ยน Logic ในอนาคตก็ได้
+    const managerApproverId = process.env.TEST_APPROVER_ID || "user_approver_001"; 
+
     const formData = await req.formData();
     const requesterName = formData.get("requesterName") as string;
     const requestType = formData.get("requestType") as string;
     const itemsJson = formData.get("items") as string;
-    // 🔻 (แก้ไข) รับ Due Date จาก FormData
     const dueDate = formData.get("dueDate") as string | null; 
-    // --- Validation ---
+
     if (!requesterName || !requestType || !itemsJson) { 
       return new NextResponse(JSON.stringify({ message: "Missing required fields" }), { status: 400 });
     }
+
     const validatedRequestType = requestTypeEnum.safeParse(requestType);
     if (!validatedRequestType.success) { 
       return new NextResponse(JSON.stringify({ message: "Invalid request type" }), { status: 400 });
     }
-    
-    // 🔻 (แก้ไข) Logic การตั้ง Due Date
+
+    // Date Logic
     let finalDueDate: Date;
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // รีเซ็ตเวลาเป็น 00:00:00
+    today.setHours(0, 0, 0, 0);
     
     if (validatedRequestType.data === "NORMAL") {
       finalDueDate = new Date();
-      finalDueDate.setDate(finalDueDate.getDate() + 7); // 👈 Auto 7 วัน
+      finalDueDate.setDate(finalDueDate.getDate() + 7);
     } else {
-      // (ถ้าเป็น URGENT หรือ PROJECT)
       if (!dueDate) {
         return new NextResponse(JSON.stringify({ message: "Due date is required for Urgent/Project" }), { status: 400 });
       }
       finalDueDate = new Date(dueDate);
-      // ตรวจสอบ Due Date ต้องไม่เป็นอดีต (ไม่ควรเกิดที่ Backend ถ้า Frontend เช็คดีแล้ว)
       if (finalDueDate.getTime() < today.getTime()) {
          return new NextResponse(JSON.stringify({ message: "Due Date cannot be in the past." }), { status: 400 });
       }
     }
-    // 🔺 (สิ้นสุดการแก้ไข Due Date Logic) 🔺
-
 
     let parsedItems: ParsedItem[];
-    // ... (ส่วน Parse items และ Handle File Uploads เหมือนเดิม) ...
     try {
       const rawItems = JSON.parse(itemsJson);
       parsedItems = itemsArraySchema.parse(rawItems); 
@@ -184,7 +189,7 @@ export async function POST(req: Request) {
       return new NextResponse(JSON.stringify({ message: "Invalid items JSON" }), { status: 400 });
     }
 
-    // --- Handle File Uploads ---
+    // Handle File Uploads
     const itemsWithData: (ParsedItem & { imageUrl?: string })[] = [];
     for (let i = 0; i < parsedItems.length; i++) {
        const item = parsedItems[i];
@@ -201,22 +206,20 @@ export async function POST(req: Request) {
        itemsWithData.push({ ...item, imageUrl: imageUrl });
     }
     
-    // --- คำนวณ Total Amount ---
     const totalAmount = itemsWithData.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    
     const newRequestId = await generateNextRequestId();
     
     const purchaseRequest = await db.$transaction(async (tx) => {
-      // 6.1. สร้าง PR
+      // Create PR linked to Session User
       const pr = await tx.purchaseRequest.create({
         data: {
           id: newRequestId,
-          userId: userId, // 👈 (ตอนนี้ userId ถูกต้องแล้ว)
+          userId: userId, // 🟢 Linked to logged-in user
           requesterName: requesterName,
           type: validatedRequestType.data,
-          status: "pending", // (lowercase ถูกต้อง)
+          status: "pending",
           totalAmount: totalAmount, 
-          dueDate: finalDueDate, // 👈 (แก้ไข) ใช้ finalDueDate ที่คำนวณแล้ว
+          dueDate: finalDueDate,
           items: {
             create: itemsWithData.map(item => ({
               itemName: item.itemName,         
@@ -229,7 +232,7 @@ export async function POST(req: Request) {
         },
         include: { items: true },
       });
-      // 6.2. สร้าง Approval Step ทันที (เหมือนเดิม)
+
       await tx.approvalStep.create({
         data: {
           requestId: newRequestId,
@@ -239,24 +242,21 @@ export async function POST(req: Request) {
         },
       });
 
-      // 6.3. สร้าง History ทันที (เหมือนเดิม)
       await tx.requestHistory.create({
         data: {
           requestId: newRequestId,
-          actorId: userId, 
+          actorId: userId, // 🟢 Linked to logged-in user
           action: "CREATED & SUBMITTED", 
           details: "Request created and submitted for approval",
         },
       });
       
-      
       return pr;
     });
-    // ... (ส่วนการส่ง Email แจ้ง Approver - เหมือนเดิม) ...
-    try {
-      // ⚠️ TODO: เปลี่ยนอีเมลนี้เป็นอีเมล Approver ตัวจริงของคุณ
-      const APPROVER_EMAIL = "nattapon.m@minebea.co.th"; //
 
+    // Send Email
+    try {
+      const APPROVER_EMAIL = "nattapon.m@minebea.co.th"; 
       const { subject, html } = generateApprovalEmailHtml(
         purchaseRequest,
         totalAmount,
@@ -266,36 +266,24 @@ export async function POST(req: Request) {
 
       console.log(`\n📧 Sending approval email to: ${APPROVER_EMAIL}`);
 
-      const mailOptions = {
+      await transporter.sendMail({
         from: `Purchase Request System <${GMAIL_USER}>`,
         to: APPROVER_EMAIL, 
         subject: subject, 
         html: html, 
-      };
-
-      await transporter.sendMail(mailOptions);
+      });
       console.log("✅ Approval email sent!");
       
     } catch (emailError) {
-      // ❗️สำคัญ: ถ้าส่งอีเมลไม่สำเร็จ... อย่าทำให้ Request พัง
       console.error("❌ [EMAIL_ERROR] Failed to send approval email:", emailError);
     }
 
     return NextResponse.json(purchaseRequest, { status: 201 });
 
   } catch (error: any) {
-    // ... (Error handling - เหมือนเดิม) ...
     console.error("[PURCHASE_REQUEST_POST]", error);
     if (error instanceof z.ZodError) {
       return new NextResponse(JSON.stringify(error.issues), { status: 400 });
-    }
-    if (error.code === 'P2003') {
-       console.error("Foreign key constraint violated. Check if TEST_REQUESTER_ID exists in 'users' table.");
-       return new NextResponse(JSON.stringify({ message: "Foreign key constraint violated. Ensure the user ID is correct.", code: "P2003" }), { status: 400 });
-    }
-    if (error.code === 'P2022') {
-       console.error("Column does not exist. Did you run 'npx prisma migrate dev'?");
-       return new NextResponse(JSON.stringify({ message: "Database schema mismatch. Please run migration.", code: "P2022" }), { status: 500 });
     }
     return new NextResponse("Internal Error", { status: 500 });
   }

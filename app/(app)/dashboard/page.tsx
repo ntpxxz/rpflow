@@ -13,8 +13,12 @@ import { format } from "date-fns";
 import {
   Loader2,
   MoreHorizontal,
-  TrendingUp,
-  TrendingDown,
+  FileText,
+  Clock,
+  ShoppingCart,
+  Coins,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -113,22 +117,29 @@ export default function Dashboard() {
       });
   };
 
+  // --- Updated Stats Logic ---
   const stats = useMemo(() => {
-    const pendingRequests = requests.filter(r => r.status.toLowerCase() === 'pending');
-    const processingRequests = requests.filter(r => ['approved', 'ordered'].includes(r.status.toLowerCase()));
-    
     const totalRequests = requests.length;
-    const pendingCount = pendingRequests.length;
-    const totalAmount = requests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
-    const processingCount = processingRequests.length;
-    const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
+    
+    // 1. Pending Approval (รออนุมัติ)
+    const pendingCount = requests.filter(r => r.status.toLowerCase() === 'pending').length;
+    
+    // 2. Processing (Approved + Ordered) - งานที่ฝ่ายจัดซื้อกำลังทำ
+    const processingCount = requests.filter(r => ['approved', 'ordered'].includes(r.status.toLowerCase())).length;
+    
+    // 3. Completed (Received)
+    const completedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
+
+    // 4. Total Spend (คิดเฉพาะสถานะที่ไม่ใช่ Rejected/Cancelled)
+    const validRequests = requests.filter(r => !['rejected', 'cancelled'].includes(r.status.toLowerCase()));
+    const totalAmount = validRequests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
     
     return {
       totalRequests,
       pendingCount,
-      totalAmount,
       processingCount,
-      rejectedCount,
+      completedCount,
+      totalAmount,
     };
   }, [requests]);
 
@@ -155,28 +166,21 @@ export default function Dashboard() {
       const approvedCount = requests.filter(r => r.status.toLowerCase() === 'approved').length;
       const receivedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
       const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
+      const cancelledCount = requests.filter(r => r.status.toLowerCase() === 'cancelled').length;
       
       const totalCount = requests.length;
 
       return {
           totalCount,
           data: [
-              { name: 'Shipped orders', value: orderedCount + receivedCount, fill: '#ff6b35', label: `${orderedCount + receivedCount}` }, 
-              { name: 'Pending', value: pendingCount, fill: '#ffa500', label: `${pendingCount}` }, 
-              { name: 'Approved', value: approvedCount, fill: '#4ecdc4', label: `${approvedCount}` }, 
-              { name: 'Total orders', value: totalCount - (orderedCount + receivedCount + pendingCount + approvedCount), fill: '#ffcdb2', label: `${totalCount}` }, 
+              { name: 'Received', value: receivedCount, fill: '#10b981', label: `${receivedCount}` }, 
+              { name: 'Ordered', value: orderedCount, fill: '#3b82f6', label: `${orderedCount}` }, 
+              { name: 'Approved', value: approvedCount, fill: '#6366f1', label: `${approvedCount}` }, 
+              { name: 'Pending', value: pendingCount, fill: '#f97316', label: `${pendingCount}` }, 
+              { name: 'Rejected', value: rejectedCount + cancelledCount, fill: '#ef4444', label: `${rejectedCount + cancelledCount}` }, 
           ].filter(d => d.value > 0),
       };
   }, [requests]);
-
-  const requestSort = (key: SortKey) => {
-    let direction: SortDirection = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-    setCurrentPage(1);
-  };
 
   const sortedRequests = useMemo(() => {
     const sortableRequests = [...requests];
@@ -207,8 +211,6 @@ export default function Dashboard() {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return sortedRequests.slice(startIndex, endIndex);
   }, [sortedRequests, currentPage]);
-
-  const totalPages = Math.ceil(requests.length / ITEMS_PER_PAGE);
 
   const handleOpenModal = (e: React.MouseEvent, stepId: string, action: "Approved" | "Rejected") => {
     e.stopPropagation();
@@ -244,22 +246,22 @@ export default function Dashboard() {
     }
   };
 
-  const StatsCard = ({ title, value, pending}: {
+  // --- Updated StatsCard Component ---
+  const StatsCard = ({ title, value, icon: Icon, className }: {
     title: string,
     value: string,
-    pending?: number,
+    icon: any,
+    className?: string
   }) => (
-    <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        {pending !== undefined && pending > 0 && (
-          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 font-medium border-0 rounded-md px-2 py-0.5">
-             Pending · {pending}
-          </Badge>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-foreground mb-1">{value}</div>       
+    <Card className={cn("border-slate-200 shadow-sm hover:shadow-md transition-shadow", className)}>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between space-y-0 pb-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="p-2 bg-slate-50 rounded-full text-slate-500">
+                <Icon className="h-4 w-4" />
+            </div>
+        </div>
+        <div className="text-2xl font-bold text-foreground">{value}</div>       
       </CardContent>
     </Card>
   );
@@ -278,40 +280,41 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="flex justify-between items-start">
          <div>
-            <h1 className="text-2xl font-bold text-foreground"> Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1">Your dashboard details for today</p>
-         </div>
-         <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">Overview of procurement activities</p>
          </div>
       </div>
 
-      {/* Stats Cards */}
-      {/* Stats Cards */}
+      {/* Stats Cards (Updated) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total orders */}
-        <StatsCard 
-          title="Total Requests"
-          value={stats.totalRequests.toLocaleString()}
-          pending={stats.pendingCount}     
         
+        {/* 1. Total Requisitions */}
+        <StatsCard 
+          title="Total Requisitions"
+          value={stats.totalRequests.toLocaleString()}
+          icon={FileText}
         />
-        {/* Card 2: Total products (Total Amount) */}
-        <StatsCard 
-          title="Total Cost"
-          value={`฿${stats.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          pending={stats.pendingCount}      />
-        {/* Card 3: Total returns (Processing Requests) */}
-        <StatsCard 
-          title="Ordered"
-          value={stats.processingCount.toLocaleString()}
-          pending={stats.rejectedCount} 
 
-        />
-        {/* Card 4: ASN's (Approvals Pending) */}
+        {/* 2. Pending Approval - Important! */}
         <StatsCard 
-          title="ASN's"
-          value={stats.pendingCount.toLocaleString()} 
-          pending={stats.pendingCount}
+          title="Pending Approval"
+          value={stats.pendingCount.toLocaleString()}
+          icon={Clock}
+          className="border-l-4 border-l-orange-500" // เน้นสีส้ม
+        />
+
+        {/* 3. Processing (Active Orders) */}
+        <StatsCard 
+          title="In Processing"
+          value={stats.processingCount.toLocaleString()}
+          icon={ShoppingCart}
+        />
+
+        {/* 4. Total Spend */}
+        <StatsCard 
+          title="Total Spend"
+          value={`฿${stats.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          icon={Coins}
         />
       </div>
 
@@ -321,21 +324,8 @@ export default function Dashboard() {
         {/* Orders Analytics (Line Chart) */}
         <Card className="lg:col-span-2 border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
-              <CardTitle className="text-lg font-semibold">Orders Analytics</CardTitle>
-              <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-primary" />
-                    <span className="text-muted-foreground">Orders</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-slate-300" />
-                    <span className="text-muted-foreground">Returns</span>
-                  </div>
-                  <select className="bg-transparent text-foreground text-sm font-medium border-0 focus:ring-0 cursor-pointer">
-                    <option>This year</option>
-                  </select>
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
-              </div>
+              <CardTitle className="text-lg font-semibold">Request Trends</CardTitle>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
           </CardHeader>
           <CardContent className="pt-6">
             <div className="h-[280px] w-full">
@@ -363,15 +353,15 @@ export default function Dashboard() {
                        padding: '8px 12px' 
                      }}
                      labelStyle={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}
-                     formatter={(value: any) => [value.toLocaleString(), 'Orders']}
+                     formatter={(value: any) => [value.toLocaleString(), 'Requests']}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="Orders" 
-                    stroke="#ff6b35" 
+                    stroke="#f97316" 
                     strokeWidth={2.5} 
                     dot={false}
-                    activeDot={{ r: 5, fill: '#ff6b35', stroke: 'white', strokeWidth: 2 }} 
+                    activeDot={{ r: 5, fill: '#f97316', stroke: 'white', strokeWidth: 2 }} 
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -382,7 +372,7 @@ export default function Dashboard() {
         {/* Orders by Status (Donut Chart) */}
         <Card className="lg:col-span-1 border-slate-200 shadow-sm">
            <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
-              <CardTitle className="text-lg font-semibold">Orders by status</CardTitle>
+              <CardTitle className="text-lg font-semibold">Status Breakdown</CardTitle>
               <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
            </CardHeader>
            <CardContent className="flex flex-col items-center">
@@ -405,7 +395,7 @@ export default function Dashboard() {
                                 <Cell key={`cell-${index}`} fill={entry.fill} />
                             ))}
                         </Pie>
-                        <CustomLabel total={statusData.totalCount} label="Orders" viewBox={{ cx: 235, cy: 100 }} />
+                        <CustomLabel total={statusData.totalCount} label="Requests" viewBox={{ cx: 235, cy: 100 }} />
                     </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -429,7 +419,7 @@ export default function Dashboard() {
       {/* Recent Orders Table */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex flex-row justify-between items-center pb-3 border-b border-slate-100">
-            <CardTitle className="text-lg font-semibold">Recent orders</CardTitle>
+            <CardTitle className="text-lg font-semibold">Recent Requests</CardTitle>
             <Button 
               variant="ghost" 
               className="text-sm font-medium text-primary hover:text-primary/80 hover:bg-transparent"
@@ -444,37 +434,31 @@ export default function Dashboard() {
                   <TableHeader>
                       <TableRow className="hover:bg-transparent border-b border-slate-200">
                         <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pl-6">
-                          Order #
+                          Request #
                         </TableHead>
                         <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
                           Requester
                         </TableHead>
                         <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                          Request date
-                        </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                          Order date
+                          Date
                         </TableHead>
                         <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
                           Status
                         </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6">
-                          Total amount
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6 text-right">
+                          Total Amount
                         </TableHead>
                       </TableRow>
                   </TableHeader>
                   <TableBody>
                       {paginatedRequests.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                               No recent requests found.
                             </TableCell>
                           </TableRow>
                       ) : (
                       paginatedRequests.map((req) => {
-                          const pendingStep = req.approvalSteps.find((s) => s.status.toLowerCase() === "pending");
-                          const isLoading = pendingStep && actionLoading === pendingStep.id;
-                          
                           return (
                           <TableRow 
                             key={req.id} 
@@ -488,41 +472,32 @@ export default function Dashboard() {
                                 <span className="text-sm text-foreground">{req.user.name}</span>
                               </TableCell>
                               <TableCell className="py-4">
-                                <div className="text-sm">
-                                  <div className="text-foreground">{format(new Date(req.createdAt), "MMM d, yyyy")}</div>
-                                  <div className="text-xs text-muted-foreground">{format(new Date(req.createdAt), "hh:mm a")}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
                                 <div className="text-sm text-muted-foreground">
-                                  {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' 
-                                    ? format(new Date(req.updatedAt), "MMM d, yyyy")
-                                    : '-'
-                                  }
+                                  {format(new Date(req.createdAt), "MMM d, yyyy")}
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
                                   {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' ? (
-                                      <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <span className="mr-1.5">●</span> Shipped
+                                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <ShoppingCart className="mr-1.5 h-3 w-3" /> Ordered
                                       </Badge>
                                   ) : req.status.toLowerCase() === 'approved' ? (
-                                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <span className="mr-1.5">●</span> Pending
+                                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <CheckCircle2 className="mr-1.5 h-3 w-3" /> Approved
                                       </Badge>
                                   ) : req.status.toLowerCase() === 'rejected' || req.status.toLowerCase() === 'cancelled' ? (
-                                      <Badge className="bg-pink-100 text-pink-700 hover:bg-pink-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <span className="mr-1.5">⚠</span> Cancelled
+                                      <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <XCircle className="mr-1.5 h-3 w-3" /> Rejected
                                       </Badge>
                                   ) : (
                                       <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <span className="mr-1.5">●</span> Pending
+                                        <Clock className="mr-1.5 h-3 w-3" /> Pending
                                       </Badge>
                                   )}
                               </TableCell>
-                              <TableCell className="py-4 pr-6">
+                              <TableCell className="py-4 pr-6 text-right">
                                   <span className="text-sm font-medium text-foreground">
-                                    ฿{Number(req.totalAmount).toFixed(2)}
+                                    ฿{Number(req.totalAmount).toLocaleString()}
                                   </span>
                               </TableCell>
                           </TableRow>

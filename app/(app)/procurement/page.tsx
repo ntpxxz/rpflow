@@ -2,13 +2,15 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation"; // 👈 useRouter
-import { PurchaseRequest, User, RequestItem } from "@prisma/client";
-import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { RequestItem } from "@prisma/client";
 import {
   Card,
   CardContent,
   CardFooter,
+  CardHeader,
+  CardTitle,
+  CardDescription
 } from "@/components/ui/card";
 import {
   Table,
@@ -21,7 +23,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Zap, FileText, ArrowRight, FileQuestion, Package, FileCheck } from "lucide-react"; // เพิ่มไอคอน
+import { 
+  Zap, 
+  FileText, 
+  FileQuestion, 
+  Package, 
+  FileCheck,
+  Loader2,
+  ArrowRight,
+  Search
+} from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -32,8 +43,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import React from "react";
 import Image from "next/image";
+
 type ProcurementItem = RequestItem & {
-  isQuotationRequested: boolean; // รับค่ามาจาก DB
+  isQuotationRequested: boolean;
   request: {
     id: string;
     requesterName: string | null;
@@ -83,7 +95,6 @@ export default function ProcurementPage() {
       });
   };
 
-  // ... (Logic การแบ่งกลุ่มและ Selection คงเดิม) ...
   const queueItems = useMemo(() => itemsToOrder.filter(item => item.procurementStatus === 'QUEUE'), [itemsToOrder]);
   const awaitingPoItems = useMemo(() => itemsToOrder.filter(item => item.procurementStatus === 'AWAITING_PO'), [itemsToOrder]);
 
@@ -118,33 +129,18 @@ export default function ProcurementPage() {
     else selector(items.map((item) => item.id));
   };
   
-  const handleGroupSelect = (requestId: string, groupItems: ProcurementItem[], isCurrentlySelected: boolean, currentStatus: ProcurementItem['procurementStatus']) => {
-    const selector = currentStatus === 'QUEUE' ? setSelectedQueueIds : setSelectedAwaitingPoIds;
-    const itemIds = groupItems.map(item => item.id);
-    if (isCurrentlySelected) selector(prev => prev.filter(id => !itemIds.includes(id)));
-    else selector(prev => [...new Set([...prev, ...itemIds])]);
-  };
-
-  // 🔻 (แก้ไข) นำทางไปหน้า Request Quotation (New Page)
   const handleGoToRequestQuotation = () => {
     if (selectedQueueIds.length === 0) return;
     const idsParam = selectedQueueIds.join(",");
     router.push(`/procurement/request-quotation?ids=${idsParam}`);
   };
 
-  // 🔻 (แก้ไข) นำทางไปหน้า Create PO (New Page)
   const handleGoToCreatePO = () => {
     if (selectedAwaitingPoIds.length === 0) return;
     const idsParam = selectedAwaitingPoIds.join(",");
     router.push(`/procurement/create-po?ids=${idsParam}`);
   };
 
-  const handleMoveToQueue = () => {
-    // ... (Logic ย้ายกลับ Queue เหมือนเดิม ถ้าต้องการ) ...
-    // เพื่อความกระชับในตัวอย่างนี้ ผมขอละไว้ ถ้าคุณใช้ Logic เดิมก็ใส่กลับมาได้ครับ
-    alert("Move back logic here");
-  };
-  
   const handleQuotationChange = (itemId: string, value: string) => {
     setItemQuotations((prev) => ({ ...prev, [itemId]: value }));
   };
@@ -154,105 +150,205 @@ export default function ProcurementPage() {
     const someSelected = selectedIds.length > 0 && !allSelected;
     
     return (
-      <Table>
-        <TableHeader>
-            <TableRow>
-                <TableHead className="w-[50px]">
-                    <Checkbox checked={allSelected} indeterminate={someSelected} onCheckedChange={() => handleSelectAll(currentStatus)} />
-                </TableHead>
-                <TableHead>Item</TableHead>
-                <TableHead></TableHead>
-                <TableHead>PR</TableHead>                
-                <TableHead>Requestor</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead className="w-[200px]">Quotation No.</TableHead>
-            </TableRow>
-        </TableHeader>
-        <TableBody>
-            {Object.keys(groupedItems).length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No items.</TableCell></TableRow>
-            ) : (
-                Object.entries(groupedItems).map(([requestId, groupItems]) => {
-                    const allGroupSelected = groupItems.every(item => selectedIds.includes(item.id));
-                    const someGroupSelected = groupItems.some(item => selectedIds.includes(item.id)) && !allGroupSelected;
-                    return (
-                        <React.Fragment key={requestId}>
-                            {groupItems.map((item) => {
-                                const isSelected = selectedIds.includes(item.id);
-                                return (
-                                    <TableRow key={item.id} data-state={isSelected ? "selected" : ""}>
-                                        <TableCell><Checkbox checked={isSelected} onCheckedChange={() => handleItemSelect(item.id, currentStatus)} /></TableCell>
-                                        <TableCell>
-                                    <div className="relative w-28 h-28 rounded-lg overflow-hidden border bg-slate-50 shrink-0 self-center">
-                                        {item.imageUrl ? (
-                                            <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                <Package className="h-10 w-10" />
-                                            </div>
-                                        )}
-                                    </div>                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-medium">{item.itemName}</div>
-                                            <div className="text-xs text-muted-foreground truncate max-w-[200px]">{item.detail}</div>
-                                        </TableCell>
-                                        <TableCell className="text-sm"> {requestId} </TableCell>
-                                        <TableCell className="text-sm">{item.request.user?.name || item.request.requesterName}</TableCell>
-                                        <TableCell>{item.quantity - item.quantityOrdered}</TableCell>
-                                        <TableCell>
-                                            <Input
-                                                placeholder="QT No."
-                                                value={itemQuotations[item.id] || ""}
-                                                onChange={(e) => handleQuotationChange(item.id, e.target.value)}
-                                                disabled={currentStatus === 'QUEUE'} 
-                                                className={cn("h-8", !isSelected && currentStatus === 'AWAITING_PO' && "opacity-50")}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </React.Fragment>
-                    );
-                })
-            )}
-        </TableBody>
-    </Table>
+      <div className="relative w-full overflow-x-auto">
+        <Table>
+            <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                    <TableHead className="w-[50px] h-11 px-4">
+                        <Checkbox 
+                            checked={allSelected} 
+                            // Note: If your Checkbox component supports 'indeterminate', pass it here. 
+                            // Otherwise, Shadcn usually handles this via `checked="indeterminate"` or a ref.
+                            // Keeping your original logic for safety:
+                            // @ts-ignore
+                            indeterminate={someSelected} 
+                            onCheckedChange={() => handleSelectAll(currentStatus)} 
+                            className="border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                        />
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">Items</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">Request Info</TableHead>                
+                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">Requester</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">Qty</TableHead>
+                    <TableHead className="w-[200px] h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">Quotation No.</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {Object.keys(groupedItems).length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                                <Package className="w-8 h-8 text-slate-300" />
+                                <p>No items in this queue.</p>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    Object.entries(groupedItems).map(([requestId, groupItems]) => {
+                        return (
+                            <React.Fragment key={requestId}>
+                                {groupItems.map((item) => {
+                                    const isSelected = selectedIds.includes(item.id);
+                                    return (
+                                        <TableRow 
+                                            key={item.id} 
+                                            data-state={isSelected ? "selected" : ""}
+                                            className="group hover:bg-slate-50/80 border-b border-slate-100 transition-colors"
+                                        >
+                                            <TableCell className="py-3 px-4">
+                                                <Checkbox 
+                                                    checked={isSelected} 
+                                                    onCheckedChange={() => handleItemSelect(item.id, currentStatus)}
+                                                    className="border-slate-300 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600" 
+                                                />
+                                            </TableCell>
+                                            <TableCell className="py-3">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 bg-white shrink-0 shadow-sm">
+                                                        {item.imageUrl ? (
+                                                            <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
+                                                                <Package className="h-5 w-5" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium text-foreground text-sm">{item.itemName}</div>
+                                                        <div className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{item.detail || "No details"}</div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-3 text-sm font-medium text-slate-600">
+                                                <Badge variant="outline" className="bg-slate-50 font-mono text-xs">
+                                                    {requestId}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="py-3 text-sm text-foreground">
+                                                {item.request.user?.name || item.request.requesterName}
+                                            </TableCell>
+                                            <TableCell className="py-3 text-sm font-medium text-foreground">
+                                                {item.quantity - item.quantityOrdered}
+                                            </TableCell>
+                                            <TableCell className="py-3">
+                                                <Input
+                                                    placeholder="QT No."
+                                                    value={itemQuotations[item.id] || ""}
+                                                    onChange={(e) => handleQuotationChange(item.id, e.target.value)}
+                                                    disabled={currentStatus === 'QUEUE'} 
+                                                    className={cn(
+                                                        "h-9 bg-white border-slate-200 text-sm focus-visible:ring-orange-500", 
+                                                        !isSelected && currentStatus === 'AWAITING_PO' && "opacity-50"
+                                                    )}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </React.Fragment>
+                        );
+                    })
+                )}
+            </TableBody>
+        </Table>
+      </div>
     );
   }
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Procurement Queue</h1>
-        <Tabs defaultValue="queue" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="queue" className="gap-2"><Zap className="h-4 w-4"/> 1. New Items ({queueItems.length})</TabsTrigger>
-                <TabsTrigger value="awaiting_po" className="gap-2"><FileText className="h-4 w-4"/> 2. Ready for PO ({awaitingPoItems.length})</TabsTrigger>
-            </TabsList>
+    <div className="space-y-6 pb-10 font-sans text-slate-900">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 className="text-2xl font-bold text-foreground tracking-tight">Procurement Queue</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Manage items waiting for quotation and purchase orders.
+                </p>
+            </div>
+        </div>
+
+        {/* Tabs & Content */}
+        <Tabs defaultValue="queue" className="w-full space-y-6">
+            <div className="flex items-center">
+                <TabsList className="bg-slate-100 p-1 rounded-lg">
+                    <TabsTrigger 
+                        value="queue" 
+                        className="gap-2 px-4 py-2 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm"
+                    >
+                        <Zap className="h-4 w-4"/> New Items 
+                        <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700 text-[10px] h-5 px-1.5">{queueItems.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="awaiting_po" 
+                        className="gap-2 px-4 py-2 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+                    >
+                        <FileText className="h-4 w-4"/> Ready for PO 
+                        <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700 text-[10px] h-5 px-1.5">{awaitingPoItems.length}</Badge>
+                    </TabsTrigger>
+                </TabsList>
+            </div>
             
-            <TabsContent value="queue">
-                <Card>
-                    <CardContent className="pt-6">{renderTable(queueItems, selectedQueueIds, 'QUEUE', groupedQueueItems)}</CardContent>
+            <TabsContent value="queue" className="mt-0">
+                <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="border-b border-slate-100 bg-slate-50/30 pb-4">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-orange-500" /> 
+                            Items Queue
+                        </CardTitle>
+                        <CardDescription>Select items to generate a Request for Quotation (RFQ).</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {renderTable(queueItems, selectedQueueIds, 'QUEUE', groupedQueueItems)}
+                    </CardContent>
                     {queueItems.length > 0 && (
-                        <CardFooter className="justify-end pt-6 gap-2">
-                            <Button onClick={handleGoToRequestQuotation} disabled={selectedQueueIds.length === 0}>
-                            <FileQuestion className="h-4 w-4"/>Generate RFQ ({selectedQueueIds.length}) 
+                        <CardFooter className="justify-between border-t border-slate-100 bg-slate-50/30 p-4">
+                            <div className="text-xs text-muted-foreground">
+                                {selectedQueueIds.length} items selected
+                            </div>
+                            <Button 
+                                onClick={handleGoToRequestQuotation} 
+                                disabled={selectedQueueIds.length === 0}
+                                className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm"
+                            >
+                                <FileQuestion className="h-4 w-4 mr-2"/>Generate RFQ
                             </Button>
                         </CardFooter>
                     )}
                 </Card>
             </TabsContent>
 
-            <TabsContent value="awaiting_po">
-                 <Card>
-                    <CardContent className="pt-6">{renderTable(awaitingPoItems, selectedAwaitingPoIds, 'AWAITING_PO', groupedAwaitingPoItems)}</CardContent>
+            <TabsContent value="awaiting_po" className="mt-0">
+                 <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="border-b border-slate-100 bg-slate-50/30 pb-4">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                            <FileCheck className="h-4 w-4 text-blue-500" />
+                            Ready for Purchase
+                        </CardTitle>
+                        <CardDescription>Select items that have quotations to create a Purchase Order.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {renderTable(awaitingPoItems, selectedAwaitingPoIds, 'AWAITING_PO', groupedAwaitingPoItems)}
+                    </CardContent>
                     {awaitingPoItems.length > 0 && (
-                        <CardFooter className="justify-between pt-6">
-                            {/*<Button variant="outline" onClick={handleMoveToQueue} disabled={selectedAwaitingPoIds.length === 0}>Back to Queue</Button>*/}
-                            {/* 🔻 ปุ่มไปหน้า Create PO */}
-                            <Button onClick={handleGoToCreatePO} disabled={selectedAwaitingPoIds.length === 0}>
-                            <FileCheck className="h-4 w-4"/> Create PO ({selectedAwaitingPoIds.length}) 
+                        <CardFooter className="justify-between border-t border-slate-100 bg-slate-50/30 p-4">
+                            <div className="text-xs text-muted-foreground">
+                                {selectedAwaitingPoIds.length} items selected
+                            </div>
+                            <Button 
+                                onClick={handleGoToCreatePO} 
+                                disabled={selectedAwaitingPoIds.length === 0}
+                                className="text-white shadow-sm"
+                            >
+                                <FileCheck className="h-4 w-4 mr-2"/> Create Purchase Order
                             </Button>
                         </CardFooter>
                     )}

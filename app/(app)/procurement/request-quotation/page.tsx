@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { RequestItem, PurchaseRequest, User } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Printer, ChevronLeft, Send, Package, X, FileText, UserRound } from "lucide-react";import Image from "next/image";
+import { Loader2, Printer, ChevronLeft, Send, Package, X, FileText, User as UserIcon } from "lucide-react";
+import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
 
 type ItemWithDetails = RequestItem & {
   request: PurchaseRequest & {
@@ -27,7 +29,7 @@ type ItemWithDetails = RequestItem & {
 
 export default function RequestQuotationPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center p-10"><Loader2 className="animate-spin"/></div>}>
+    <Suspense fallback={<div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary"/></div>}>
       <RequestQuotationContent />
     </Suspense>
   );
@@ -112,139 +114,146 @@ function RequestQuotationContent() {
       setIsSendingEmail(false);
     }
   };
+
   const handleRemoveItem = (id: string) => {
     setItems(prev => prev.filter(i => i.id !== id));
-};
+  };
 
   const totalQuantity = items.reduce((sum, item) => sum + (item.quantity - item.quantityOrdered), 0);
 
-  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
-  if (items.length === 0) return <div className="p-8 text-center text-muted-foreground">No items found.</div>;
+  if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (items.length === 0) return <div className="p-10 text-center text-muted-foreground">No items selected.</div>;
 
   return (
-    <div className="max-w mx-auto pb-10 space-y-6">
+    <div className="space-y-6 max-w mx-auto pb-10 font-sans">
+      
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back
+      <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-slate-100 text-slate-500">
+            <ChevronLeft className="h-6 w-6" />
         </Button>
-        <h1 className="text-3xl font-bold text-foreground">Request for Quotation</h1>
+        <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Request for Quotation</h1>
+            <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-100 font-mono font-normal">
+                    {rfqNumber}
+                </Badge>
+                <span className="text-sm text-muted-foreground">Draft</span>
+            </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Item List */}
         <div className="lg:col-span-2 space-y-4">
-                    <div className="flex justify-between items-center pb-2">
-                        <h2 className="text-xl font-semibold flex items-center gap-2">
-                            Items List 
-                            <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">{items.length}</span>
-                        </h2>
-                        <span className="text-sm text-muted-foreground">Ref: {rfqNumber}</span>
-                    </div>
+            <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    Items List 
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 rounded-full px-2">{items.length}</Badge>
+                </h2>
+            </div>
 
-                    <div className="space-y-4">
-                        {items.map((item) => {
-                            const qty = item.quantity - item.quantityOrdered;
-                            return (
-                                <div key={item.id} className="group relative flex gap-4 p-4 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                                    {/* 1. Image: ทำให้ดูดีขึ้นด้วย bg และ border */}
-                                    <div className="relative w-28 h-28 rounded-lg overflow-hidden border bg-slate-50 shrink-0 self-center">
-                                        {item.imageUrl ? (
-                                            <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                <Package className="h-10 w-10" />
-                                            </div>
-                                        )}
+            <div className="space-y-4">
+                {items.map((item) => {
+                    const qty = item.quantity - item.quantityOrdered;
+                    return (
+                        <Card key={item.id} className="group relative overflow-hidden border-slate-200 shadow-sm hover:shadow-md transition-all duration-200">
+                            <div className="flex p-4 gap-5">
+                                {/* Image */}
+                                <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-100 bg-slate-50 shrink-0">
+                                    {item.imageUrl ? (
+                                        <Image src={item.imageUrl} alt={item.itemName} fill className="object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                            <Package className="h-8 w-8" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 flex flex-col justify-between min-w-0 py-1">
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div>
+                                            <h3 className="font-bold text-base text-foreground line-clamp-1" title={item.itemName}>
+                                                {item.itemName}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.detail || "No description"}</p>
+                                        </div>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => handleRemoveItem(item.id)}
+                                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 -mr-2 -mt-2"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
 
-                                    {/* 2. Content: จัด layout ใหม่ */}
-                                    <div className="flex-1 flex flex-col min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <div className="pr-8">
-                                                <h3 className="font-bold text-lg text-foreground line-clamp-1" title={item.itemName}>
-                                                    {item.itemName}
-                                                </h3>
+                                    <div className="flex items-end justify-between mt-3">
+                                        <div className="flex gap-3">
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                                <UserIcon className="h-3 w-3" />
+                                                <span className="truncate max-w-[100px]">{item.request.user?.name}</span>
                                             </div>
-                                            
-                                            {/* ปุ่มลบ (X) */}
-                                            <button 
-                                                onClick={() => handleRemoveItem(item.id)}
-                                                className="absolute top-3 right-3 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                            >
-                                                <X className="h-5 w-5" />
-                                            </button>
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                                <FileText className="h-3 w-3" />
+                                                <span className="font-mono">{item.requestId}</span>
+                                            </div>
                                         </div>
-
-                                        {/* Metadata Section: ใส่พื้นหลังจางๆ ให้ดูเป็นสัดส่วน */}
-                                        <div className="mt-auto pt-3 flex flex-wrap items-center justify-between gap-3">
-                                            <div className="flex flex-wrap gap-3">
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
-                                                    <UserRound className="h-3.5 w-3.5 text-blue-500" />
-                                                    <span>{item.request.user?.name || "Unknown"}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
-                                                    <FileText className="h-3.5 w-3.5 text-orange-500" />
-                                                    <span className="font-mono">{item.requestId}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Quantity Badge ใหญ่ขึ้น */}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Qty</span>
-                                                <div className="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-lg font-bold text-lg shadow-sm min-w-[3rem] text-center">
-                                                    {qty}
-                                                </div>
-                                            </div>
+                                        <div className="text-right">
+                                            <span className="text-[10px] uppercase font-bold text-slate-400 mr-2 tracking-wider">Quantity</span>
+                                            <span className="font-bold text-lg text-foreground">{qty}</span>
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+        </div>
 
         {/* Right Column: Summary */}
         <div className="lg:col-span-1">
-            <Card className="sticky top-6 shadow-lg border-0 bg-white dark:bg-zinc-900">
-                <CardHeader className="pb-4 border-b">
-                    <CardTitle className="text-xl">Summary</CardTitle>
+            <Card className="sticky top-6 border-slate-200 shadow-md">
+                <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50">
+                    <CardTitle className="text-base font-bold">Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-4">
                     <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total Unique Items</span>
-                        <span className="font-medium">{items.length}</span>
+                        <span className="text-slate-500">Total Unique Items</span>
+                        <span className="font-semibold text-slate-900">{items.length}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total Quantity</span>
-                        <span className="font-medium">{totalQuantity}</span>
+                        <span className="text-slate-500">Total Quantity</span>
+                        <span className="font-semibold text-slate-900">{totalQuantity}</span>
                     </div>
                     
-                    <div className="border-t pt-4 mt-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-base font-bold">Action</span>
-                            <span className="text-xs text-muted-foreground">Ready to send</span>
+                    <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 mt-4">
+                        <div className="flex items-center gap-2 text-blue-800 font-medium text-xs">
+                            <Send className="h-3.5 w-3.5" />
+                            <span>Ready to request</span>
                         </div>
                     </div>
                 </CardContent>
-                <CardFooter className="flex flex-col gap-3 pt-2 pb-6">
+                <CardFooter className="flex flex-col gap-3 pt-2 pb-6 px-6">
                     <Button 
-                        className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white" 
+                        className="w-full  text-white font-medium h-11" 
                         onClick={() => setIsModalOpen(true)}
                         disabled={isSendingEmail}
                     >
-                        {isSendingEmail ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                        Send RFQ Email
+                        {isSendingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                        Send via Email
                     </Button>
                     
                     <Button 
                         variant="outline" 
-                        className="w-full border-slate-300 hover:bg-slate-50"
+                        className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 h-11"
                         onClick={handlePrintOrSavePDF}
                         disabled={isGeneratingPdf}
                     >
                         {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
-                        Print PDF
+                        Preview PDF
                     </Button>
                 </CardFooter>
             </Card>
@@ -257,12 +266,12 @@ function RequestQuotationContent() {
           <DialogHeader>
             <DialogTitle>Send Request Quotation</DialogTitle>
             <DialogDescription>
-              Enter vendor email address. The RFQ PDF will be attached.
+              Enter the vendor's email address. The RFQ document will be attached as a PDF.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">To:</Label>
+              <Label htmlFor="email" className="text-right text-slate-500">To</Label>
               <Input
                 id="email"
                 type="email"
@@ -273,7 +282,7 @@ function RequestQuotationContent() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="cc-email" className="text-right">CC:</Label>
+              <Label htmlFor="cc-email" className="text-right text-slate-500">CC</Label>
               <Input
                 id="cc-email"
                 type="email"
@@ -285,11 +294,18 @@ function RequestQuotationContent() {
             </div>
           </div>
           <DialogFooter>
-          <DialogClose asChild>
-              <Button variant="outline" disabled={isSendingEmail}>Cancel</Button>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSendingEmail}>
+                Cancel
+              </Button>
             </DialogClose>
-            <Button onClick={handleSendEmail} disabled={isSendingEmail}>
-              {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button 
+                type="button" 
+                onClick={handleSendEmail} 
+                disabled={isSendingEmail}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Confirm & Send
             </Button>
           </DialogFooter>
