@@ -11,18 +11,12 @@ import {
 } from "@prisma/client";
 import { format } from "date-fns";
 import {
-  ArrowUp,
-  ArrowDown,
   Loader2,
-  Package,
-  Clock,
-  CheckCircle2,
+  MoreHorizontal,
   TrendingUp,
-  AlertCircle,
-  Wallet,
-  MoreHorizontal
+  TrendingDown,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -44,9 +38,19 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-// Recharts imports
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import { 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer, 
+  Cell,
+  LineChart, 
+  Line, 
+  PieChart, 
+  Pie,
+} from 'recharts';
+import { cn } from "@/lib/utils"; 
 
 type RequestWithDetails = PurchaseRequest & {
   user: User;
@@ -57,12 +61,25 @@ type RequestWithDetails = PurchaseRequest & {
 type SortKey = "id" | "user" | "totalAmount" | "status" | "createdAt";
 type SortDirection = "asc" | "desc";
 
+const CustomLabel = ({ viewBox, total, label }: any) => {
+    const { cx, cy } = viewBox;
+    return (
+      <g>
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold text-foreground">
+            {total.toLocaleString()}
+        </text>
+        <text x={cx} y={cy + 24} textAnchor="middle" dominantBaseline="middle" className="text-sm text-muted-foreground">
+          {label}
+        </text>
+      </g>
+    );
+};
+
 export default function Dashboard() {
   const [requests, setRequests] = useState<RequestWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Sort & Pagination State
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({
     key: "createdAt",
     direction: "desc",
@@ -70,7 +87,6 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8; 
 
-  // Action State
   const [comment, setComment] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -97,49 +113,62 @@ export default function Dashboard() {
       });
   };
 
-  // --- 📊 Stats Cards Logic ---
   const stats = useMemo(() => {
     const pendingRequests = requests.filter(r => r.status.toLowerCase() === 'pending');
-    
-    const pendingCount = pendingRequests.length;
-    const pendingAmount = pendingRequests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
-
     const processingRequests = requests.filter(r => ['approved', 'ordered'].includes(r.status.toLowerCase()));
+    
+    const totalRequests = requests.length;
+    const pendingCount = pendingRequests.length;
+    const totalAmount = requests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
     const processingCount = processingRequests.length;
-
-    const completedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
-
+    const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
+    
     return {
-      totalRequests: requests.length,
+      totalRequests,
       pendingCount,
-      pendingAmount,
+      totalAmount,
       processingCount,
-      completedCount
+      rejectedCount,
     };
   }, [requests]);
 
-  // --- 📈 Chart Data Preparation (ใช้สี Primary/Secondary/Success) ---
-  const chartData = useMemo(() => {
-    const data = [
-      { name: 'Pending', value: 0, color: '#f59e0b' }, // Amber (Warning)
-      { name: 'Approved', value: 0, color: 'hsl(var(--primary))' }, // 🟢 Primary Orange
-      { name: 'Ordered', value: 0, color: '#3b82f6' },  // Blue
-      { name: 'Rejected', value: 0, color: '#ef4444' }, // Red
-      { name: 'Received', value: 0, color: '#10b981' }, // Emerald
-    ];
+  const monthlyRequestData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dataMap = monthNames.reduce((acc: Record<string, number>, month) => ({ ...acc, [month]: 0 }), {});
 
     requests.forEach(r => {
-      const status = r.status.toLowerCase();
-      const entry = data.find(d => d.name.toLowerCase() === status);
-      if (entry) {
-        entry.value += 1;
-      }
+      const monthName = format(new Date(r.createdAt), "MMM"); 
+      dataMap[monthName] = (dataMap[monthName] || 0) + 1;
     });
     
-    return data.filter(d => d.value > 0);
+    const chartData = monthNames.map(month => ({
+        name: month,
+        Orders: dataMap[month] 
+    }));
+
+    return chartData;
   }, [requests]);
 
-  // --- Sorting & Pagination Logic ---
+  const statusData = useMemo(() => {
+      const pendingCount = requests.filter(r => r.status.toLowerCase() === 'pending').length;
+      const orderedCount = requests.filter(r => r.status.toLowerCase() === 'ordered').length;
+      const approvedCount = requests.filter(r => r.status.toLowerCase() === 'approved').length;
+      const receivedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
+      const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
+      
+      const totalCount = requests.length;
+
+      return {
+          totalCount,
+          data: [
+              { name: 'Shipped orders', value: orderedCount + receivedCount, fill: '#ff6b35', label: `${orderedCount + receivedCount}` }, 
+              { name: 'Pending', value: pendingCount, fill: '#ffa500', label: `${pendingCount}` }, 
+              { name: 'Approved', value: approvedCount, fill: '#4ecdc4', label: `${approvedCount}` }, 
+              { name: 'Total orders', value: totalCount - (orderedCount + receivedCount + pendingCount + approvedCount), fill: '#ffcdb2', label: `${totalCount}` }, 
+          ].filter(d => d.value > 0),
+      };
+  }, [requests]);
+
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -181,245 +210,334 @@ export default function Dashboard() {
 
   const totalPages = Math.ceil(requests.length / ITEMS_PER_PAGE);
 
-  // ... (Action Handlers & getStatusVariant เหมือนเดิม) ...
-    const handleOpenModal = (e: React.MouseEvent, stepId: string, action: "Approved" | "Rejected") => {
+  const handleOpenModal = (e: React.MouseEvent, stepId: string, action: "Approved" | "Rejected") => {
     e.stopPropagation();
     setCurrentAction({ stepId, action });
     setComment("");
     setIsModalOpen(true);
   };
-
+  
   const handleConfirmAction = async () => {
-    // ... (Logic การยืนยัน action) ...
-  };
+    if (!currentAction) return;
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status.toLowerCase()) {
-      case "pending": return "secondary"; // 👈 สี Secondary
-      case "approved": return "default"; // 👈 สี Primary (ส้ม)
-      case "ordered": return "default"; // 👈 สี Primary
-      case "received": return "default"; // 👈 สี Primary
-      case "rejected": return "destructive"; // สีแดง
-      case "cancelled": return "destructive";
-      default: return "outline";
+    const actorId = process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001";
+    setActionLoading(currentAction.stepId);
+    setIsModalOpen(false);
+
+    try {
+        const res = await fetch("/api/approval-steps", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                approvalStepId: currentAction.stepId,
+                newStatus: currentAction.action,
+                comment: comment,
+                actorId: actorId, 
+            }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        fetchRequests(); 
+    } catch (err: any) {
+        console.error(err);
+        alert("Failed to update status: " + (err.message || 'Unknown error'));
+        setActionLoading(null);
     }
   };
 
+  const StatsCard = ({ title, value, pending}: {
+    title: string,
+    value: string,
+    pending?: number,
+  }) => (
+    <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        {pending !== undefined && pending > 0 && (
+          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 font-medium border-0 rounded-md px-2 py-0.5">
+             Pending · {pending}
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-foreground mb-1">{value}</div>       
+      </CardContent>
+    </Card>
+  );
+
+  if (loading && requests.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 pb-10">
+      
+      {/* Page Header */}
+      <div className="flex justify-between items-start">
          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
-            <p className="text-muted-foreground">Welcome back! Here's what's happening with your requests.</p>
+            <h1 className="text-2xl font-bold text-foreground"> Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">Your dashboard details for today</p>
+         </div>
+         <div className="flex items-center gap-3">
          </div>
       </div>
 
-      {/* --- 1. Stats Cards (ใช้ Primary/Accent Colors) --- */}
+      {/* Stats Cards */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary shadow-sm"> {/* 🟢 Total: Primary Orange Accent */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Requests</CardTitle>
-            <Package className="h-4 w-4 text-primary" /> {/* 🟢 Primary Color Icon */}
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalRequests}</div>
-            <p className="text-xs text-muted-foreground">All time requests</p>
-          </CardContent>
-        </Card>
+        {/* Card 1: Total orders */}
+        <StatsCard 
+          title="Total Requests"
+          value={stats.totalRequests.toLocaleString()}
+          pending={stats.pendingCount}     
+        
+        />
+        {/* Card 2: Total products (Total Amount) */}
+        <StatsCard 
+          title="Total Cost"
+          value={`฿${stats.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          pending={stats.pendingCount}      />
+        {/* Card 3: Total returns (Processing Requests) */}
+        <StatsCard 
+          title="Ordered"
+          value={stats.processingCount.toLocaleString()}
+          pending={stats.rejectedCount} 
 
-        <Card className="border-l-4 border-l-amber-500 shadow-sm"> {/* Pending: Amber Accent */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approval</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingCount}</div>
-            <p className="text-xs text-amber-600 font-medium">Requires attention</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 shadow-sm"> {/* Processing: Blue Accent */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Processing</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.processingCount}</div>
-            <p className="text-xs text-muted-foreground">Approved & Ordered</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-emerald-500 shadow-sm"> {/* Financial: Emerald Accent */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Amount</CardTitle>
-            <Wallet className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">฿{stats.pendingAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            <p className="text-xs text-muted-foreground">Est. cost for pending</p>
-          </CardContent>
-        </Card>
+        />
+        {/* Card 4: ASN's (Approvals Pending) */}
+        <StatsCard 
+          title="ASN's"
+          value={stats.pendingCount.toLocaleString()} 
+          pending={stats.pendingCount}
+        />
       </div>
 
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* --- 2. Table Section (Main Content) --- */}
-        <div className="lg:col-span-2">
-            <Card className="h-full shadow-sm border border-slate-200">
-            <CardHeader className="border-b border-border bg-secondary/30 py-4">
-                <CardTitle className="text-lg">Recent Requests</CardTitle>
-                <CardDescription>Manage your latest purchase requests.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Table>
-                <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[120px]">
-                        <Button variant="ghost" onClick={() => requestSort("id")} className="px-0 hover:bg-transparent font-semibold text-muted-foreground">
-                        Request No. {sortConfig.key === "id" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3"/> : <ArrowDown className="inline h-3 w-3"/>)}
-                        </Button>
-                    </TableHead>
-                    <TableHead>
-                        <Button variant="ghost" onClick={() => requestSort("user")} className="px-0 hover:bg-transparent font-semibold text-muted-foreground">
-                        Requestor {sortConfig.key === "user" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3"/> : <ArrowDown className="inline h-3 w-3"/>)}
-                        </Button>
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell">Date</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>
-                        <Button variant="ghost" onClick={() => requestSort("totalAmount")} className="px-0 hover:bg-transparent font-semibold text-muted-foreground">
-                        Total {sortConfig.key === "totalAmount" && (sortConfig.direction === "asc" ? <ArrowUp className="inline h-3 w-3"/> : <ArrowDown className="inline h-3 w-3"/>)}
-                        </Button>
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
-                        <TableRow><TableCell colSpan={6} className="h-48 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-300" /></TableCell></TableRow>
-                    ) : paginatedRequests.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">No requests found.</TableCell></TableRow>
-                    ) : (
-                    paginatedRequests.map((req) => {
-                        const pendingStep = req.approvalSteps.find((s) => s.status.toLowerCase() === "pending");
-                        const isLoading = pendingStep && actionLoading === pendingStep.id;
+        
+        {/* Orders Analytics (Line Chart) */}
+        <Card className="lg:col-span-2 border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
+              <CardTitle className="text-lg font-semibold">Orders Analytics</CardTitle>
+              <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-primary" />
+                    <span className="text-muted-foreground">Orders</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-slate-300" />
+                    <span className="text-muted-foreground">Returns</span>
+                  </div>
+                  <select className="bg-transparent text-foreground text-sm font-medium border-0 focus:ring-0 cursor-pointer">
+                    <option>This year</option>
+                  </select>
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
+              </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyRequestData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94a3b8' }}
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  />
+                  <RechartsTooltip 
+                     contentStyle={{ 
+                       borderRadius: '8px', 
+                       border: '1px solid #e2e8f0', 
+                       backgroundColor: 'white',
+                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                       padding: '8px 12px' 
+                     }}
+                     labelStyle={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}
+                     formatter={(value: any) => [value.toLocaleString(), 'Orders']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Orders" 
+                    stroke="#ff6b35" 
+                    strokeWidth={2.5} 
+                    dot={false}
+                    activeDot={{ r: 5, fill: '#ff6b35', stroke: 'white', strokeWidth: 2 }} 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-                        return (
-                        <TableRow key={req.id} className="cursor-pointer hover:bg-accent group" onClick={() => router.push(`/purchase-requests/${req.id}`)}>
-                            <TableCell className="font-medium text-foreground">{req.id}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-xs text-secondary-foreground font-bold">
-                                        {req.user.name.charAt(0)}
-                                    </div>
-                                    <span className="text-sm text-foreground">{req.user.name}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                                {format(new Date(req.createdAt), "dd MMM yyyy")}
-                            </TableCell>
-                            <TableCell className="text-foreground text-sm">{req.items.length}</TableCell>
-                            <TableCell className="font-semibold text-foreground">
-                                ฿{Number(req.totalAmount).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant={getStatusVariant(req.status)} className="capitalize shadow-none">
-                                    {req.status}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                {isLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin ml-auto text-primary" />
-                                ) : req.status.toLowerCase() === "pending" && pendingStep ? (
-                                    <div className="flex justify-end gap-2">
-                                        {/* 🟢 Action Buttons (Using Theme) */}
-                                        <Button size="sm" variant="destructive" className="h-7 text-xs"
-                                            onClick={(e) => handleOpenModal(e, pendingStep.id, "Rejected")}>
-                                            Reject
-                                        </Button>
-                                        <Button size="sm" variant="default" className="h-7 text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
-                                            onClick={(e) => handleOpenModal(e, pendingStep.id, "Approved")}>
-                                            Approve
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                        <MoreHorizontal className="w-4 h-4" />
-                                    </Button>
-                                )}
-                            </TableCell>
-                        </TableRow>
-                        );
-                    })
-                    )}
-                </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                <div className="p-4 flex items-center justify-between border-t border-border bg-card">
-                    <span className="text-xs text-muted-foreground">
-                        Page {currentPage} of {totalPages} (Total {requests.length}{" "}
-                        requests)
-                    </span>
-                    <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+        {/* Orders by Status (Donut Chart) */}
+        <Card className="lg:col-span-1 border-slate-200 shadow-sm">
+           <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
+              <CardTitle className="text-lg font-semibold">Orders by status</CardTitle>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
+           </CardHeader>
+           <CardContent className="flex flex-col items-center">
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={statusData.data}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65} 
+                            outerRadius={90} 
+                            paddingAngle={2}
+                            startAngle={90}
+                            endAngle={450}
+                        >
+                            {statusData.data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                        </Pie>
+                        <CustomLabel total={statusData.totalCount} label="Orders" viewBox={{ cx: 235, cy: 100 }} />
+                    </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Legend */}
+              <div className="w-full space-y-3 mt-6">
+                {statusData.data.map(entry => (
+                    <div key={entry.name} className="flex justify-between items-center text-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="size-2.5 rounded-full" style={{ backgroundColor: entry.fill }}/>
+                            <span className="text-muted-foreground">{entry.name}</span>
+                        </div>
+                        <span className="font-semibold text-foreground">{entry.value.toLocaleString()}</span>
                     </div>
-                </div>
-            </CardContent>
-            </Card>
-        </div>
-
-        {/* --- 3. Charts & Insights Section --- */}
-        <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-sm border border-border">
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold text-foreground">Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" width={60} tick={{fontSize: 12}} />
-                                <RechartsTooltip 
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'hsl(var(--card))' }}
-                                    cursor={{fill: 'transparent'}}
-                                    // 🟢 ใช้สีจาก ChartData ที่ Map ไว้
-                                    formatter={(value, name, props) => [`${value}`, name]}
-                                />
-                                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {chartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
-            
-            {/* Tips / Info Card (เปลี่ยนสีให้เข้ากับ Theme) */}
-            <Card className="bg-blue-50 border-blue-100 shadow-none">
-                <CardContent className="p-4 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                    <div>
-                        <h4 className="text-sm font-bold text-blue-700">Tip of the day</h4>
-                        <p className="text-xs text-blue-600 mt-1">
-                            Approve requests promptly to avoid shipment delays. Check "Pending Approval" for urgent items.
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+                ))}
+              </div>
+           </CardContent>
+        </Card>
       </div>
 
-      {/* Modal (คงเดิม) */}
+      {/* Recent Orders Table */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="flex flex-row justify-between items-center pb-3 border-b border-slate-100">
+            <CardTitle className="text-lg font-semibold">Recent orders</CardTitle>
+            <Button 
+              variant="ghost" 
+              className="text-sm font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+              onClick={() => router.push("/purchase-requests")}
+            >
+              View all
+            </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                  <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b border-slate-200">
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pl-6">
+                          Order #
+                        </TableHead>
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                          Requester
+                        </TableHead>
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                          Request date
+                        </TableHead>
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                          Order date
+                        </TableHead>
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                          Status
+                        </TableHead>
+                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6">
+                          Total amount
+                        </TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {paginatedRequests.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                              No recent requests found.
+                            </TableCell>
+                          </TableRow>
+                      ) : (
+                      paginatedRequests.map((req) => {
+                          const pendingStep = req.approvalSteps.find((s) => s.status.toLowerCase() === "pending");
+                          const isLoading = pendingStep && actionLoading === pendingStep.id;
+                          
+                          return (
+                          <TableRow 
+                            key={req.id} 
+                            className="cursor-pointer hover:bg-slate-50/80 border-b border-slate-100 transition-colors" 
+                            onClick={() => router.push(`/purchase-requests/${req.id}`)}
+                          >
+                              <TableCell className="py-4 pl-6">
+                                <span className="text-sm font-medium text-foreground">#{req.id}</span>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <span className="text-sm text-foreground">{req.user.name}</span>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="text-sm">
+                                  <div className="text-foreground">{format(new Date(req.createdAt), "MMM d, yyyy")}</div>
+                                  <div className="text-xs text-muted-foreground">{format(new Date(req.createdAt), "hh:mm a")}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                <div className="text-sm text-muted-foreground">
+                                  {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' 
+                                    ? format(new Date(req.updatedAt), "MMM d, yyyy")
+                                    : '-'
+                                  }
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-4">
+                                  {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' ? (
+                                      <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <span className="mr-1.5">●</span> Shipped
+                                      </Badge>
+                                  ) : req.status.toLowerCase() === 'approved' ? (
+                                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <span className="mr-1.5">●</span> Pending
+                                      </Badge>
+                                  ) : req.status.toLowerCase() === 'rejected' || req.status.toLowerCase() === 'cancelled' ? (
+                                      <Badge className="bg-pink-100 text-pink-700 hover:bg-pink-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <span className="mr-1.5">⚠</span> Cancelled
+                                      </Badge>
+                                  ) : (
+                                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                                        <span className="mr-1.5">●</span> Pending
+                                      </Badge>
+                                  )}
+                              </TableCell>
+                              <TableCell className="py-4 pr-6">
+                                  <span className="text-sm font-medium text-foreground">
+                                    ฿{Number(req.totalAmount).toFixed(2)}
+                                  </span>
+                              </TableCell>
+                          </TableRow>
+                          );
+                      })
+                      )}
+                  </TableBody>
+              </Table>
+            </div>
+        </CardContent>
+        </Card>
+
+      {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          {/* ... (Modal content and logic remain the same) ... */}
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Action: {currentAction?.action}</DialogTitle>
             <DialogDescription>
@@ -429,27 +547,28 @@ export default function Dashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="comment-dash" className="text-right">Comment</Label>
+            <div className="space-y-2">
+              <Label htmlFor="comment-dash">Comment</Label>
               <Textarea
                 id="comment-dash"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="col-span-3"
                 placeholder={currentAction?.action === "Rejected" ? "Reason for rejection..." : "Optional comment..."}
                 disabled={actionLoading !== null}
+                rows={4}
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" className="rounded-lg">Cancel</Button>
             </DialogClose>
             <Button 
               type="button" 
               onClick={handleConfirmAction} 
               disabled={actionLoading !== null || (currentAction?.action === 'Rejected' && !comment.trim())}
               variant={currentAction?.action === 'Rejected' ? 'destructive' : 'default'}
+              className="rounded-lg"
             >
               {actionLoading !== null && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirm {currentAction?.action}
