@@ -1,6 +1,7 @@
 // app/api/purchase-orders/[poNumber]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ApprovalStatus } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
@@ -32,7 +33,7 @@ export async function GET(
                         approver: true // Approver info
                       },
                       where: {
-                         status: 'approved' // เอาเฉพาะคนที่อนุมัติแล้ว
+                        status: ApprovalStatus.Approved // เอาเฉพาะคนที่อนุมัติแล้ว
                       },
                       orderBy: {
                         approvedAt: 'desc' // เอาคนล่าสุด
@@ -54,7 +55,7 @@ export async function GET(
 
     // คำนวณยอดรวม (เหมือนเดิม)
     const totalAmount = purchaseOrder.items.reduce((sum, item) => {
-        return sum + (item.quantity * Number(item.unitPrice));
+      return sum + (item.quantity * Number(item.unitPrice));
     }, 0);
 
     const poWithTotal = {

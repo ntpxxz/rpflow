@@ -10,7 +10,7 @@ export async function PATCH(
   try {
     const requestId = params.id;
     // TODO: ควรดึง actorId จาก Auth/Session
-    const { actorId } = await req.json(); 
+    const { actorId } = await req.json();
 
     // TODO: นี่คือ Logic การหาผู้อนุมัติ (Approval Logic)
     // คุณต้องไปหา ID ของ "Manager" หรือ "Finance" จากฐานข้อมูล User
@@ -23,7 +23,7 @@ export async function PATCH(
 
     await prisma.$transaction(async (tx) => {
       // 1. อัปเดตสถานะใบ PR เป็น "กำลังรออนุมัติ"
-  
+
       // 2. สร้างขั้นตอนการอนุมัติ (Approval Steps)
       await tx.approvalStep.createMany({
         data: [
@@ -31,7 +31,7 @@ export async function PATCH(
             requestId: requestId,
             stepName: "Manager Approval", // ขั้นตอนที่ 1
             approverId: managerApproverId, // 👈 คนที่ต้องอนุมัติ
-            status: "pending",
+            status: "Pending",
           },
           // (ถ้ามีขั้นตอนที่ 2 เช่น Finance ก็เพิ่มตรงนี้)
           // {

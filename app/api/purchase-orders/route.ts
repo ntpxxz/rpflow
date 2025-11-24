@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateNextPoNumber } from "@/lib/poNumberGenerator";
 import { Decimal } from "@prisma/client/runtime/library";
+import { RequestStatus, POStatus } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
         where: {
           id: { in: requestItemIds },
           request: {
-            status: "approved",
+            status: RequestStatus.Approved, // 🟢 FIX: Use Enum
           },
           quantity: {
             gt: tx.requestItem.fields.quantityOrdered,
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       const po = await tx.purchaseOrder.create({
         data: {
           poNumber: newPoNumber,
-          status: "Sent",
+          status: POStatus.Sent, // 🟢 FIX: Use Enum
           sentAt: new Date(),
         },
       });
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
         if (pendingItems === 0) {
           await tx.purchaseRequest.update({
             where: { id: reqId },
-            data: { status: "ordered" },
+            data: { status: RequestStatus.Ordered }, // 🟢 FIX: Use Enum
           });
         }
 

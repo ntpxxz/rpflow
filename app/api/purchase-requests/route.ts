@@ -7,6 +7,7 @@ import { generateNextRequestId } from "@/lib/idGenerator";
 import nodemailer from "nodemailer";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { RequestStatus, ApprovalStatus } from "@prisma/client";
 
 // (Zod Schemas)
 const itemSchema = z.object({
@@ -102,7 +103,14 @@ export async function GET(req: NextRequest) {
 
     const whereClause: any = {};
     if (status) {
-      whereClause.status = status.toLowerCase();
+      // Map string to Enum
+      const statusKey = Object.keys(RequestStatus).find(
+        (key) => key.toLowerCase() === status.toLowerCase()
+      ) as keyof typeof RequestStatus | undefined;
+
+      if (statusKey) {
+        whereClause.status = RequestStatus[statusKey];
+      }
     }
 
     const requests = await db.purchaseRequest.findMany({
@@ -155,7 +163,7 @@ export async function POST(req: Request) {
           requesterName: session.user?.name || "Unknown",
           userId: (session.user as any).id,
           type: parsedType,
-          status: "pending",
+          status: RequestStatus.Pending,
           totalAmount,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           items: {
@@ -171,7 +179,7 @@ export async function POST(req: Request) {
               create: {
                 stepName: "Manager Approval",
                 approverId: approver.id,
-                status: "pending",
+                status: ApprovalStatus.Pending,
               },
             }
             : undefined,

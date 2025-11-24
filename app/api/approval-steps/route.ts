@@ -1,7 +1,7 @@
 // app/api/approval-steps/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, RequestStatus, ApprovalStatus } from "@prisma/client";
 import nodemailer from "nodemailer";
 
 const GMAIL_USER = process.env.GMAIL_USER;
@@ -101,8 +101,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: "Invalid status" }, { status: 400 });
     }
 
-    // Use lowercase for Prisma Enums as suggested by linter
-    const prismaStatus = newStatusLower === "approved" ? "approved" : "rejected";
+    // Normalize status to Title Case for Prisma Enums
+    const prismaStatus = newStatusLower === "approved" ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
 
     const updatedRequest = await prisma.$transaction(async (tx) => {
       // 1. Update Step
@@ -111,7 +111,7 @@ export async function PATCH(req: NextRequest) {
         data: {
           status: prismaStatus,
           comment: comment,
-          approvedAt: prismaStatus === "approved" ? new Date() : null,
+          approvedAt: prismaStatus === ApprovalStatus.Approved ? new Date() : null,
         },
       });
 
@@ -128,17 +128,17 @@ export async function PATCH(req: NextRequest) {
       // 3. Update main PR (Budget check logic)
       let finalRequest;
 
-      if (prismaStatus === "rejected") {
+      if (prismaStatus === ApprovalStatus.Rejected) {
         finalRequest = await tx.purchaseRequest.update({
           where: { id: updatedStep.requestId },
-          data: { status: "rejected" },
+          data: { status: RequestStatus.Rejected },
           include: { user: { select: { email: true, name: true } } }
         });
-      } else if (prismaStatus === "approved") {
+      } else if (prismaStatus === ApprovalStatus.Approved) {
         const pendingSteps = await tx.approvalStep.count({
           where: {
             requestId: updatedStep.requestId,
-            status: "pending",
+            status: ApprovalStatus.Pending,
           },
         });
 
@@ -154,7 +154,7 @@ export async function PATCH(req: NextRequest) {
           if (isBudgetOk) {
             finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
-              data: { status: "approved" },
+              data: { status: RequestStatus.Approved },
               include: { user: { select: { email: true, name: true } } }
             });
 
@@ -169,7 +169,7 @@ export async function PATCH(req: NextRequest) {
           } else {
             finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
-              data: { status: "rejected" },
+              data: { status: RequestStatus.Rejected },
               include: { user: { select: { email: true, name: true } } }
             });
 
@@ -198,14 +198,14 @@ export async function PATCH(req: NextRequest) {
     // Send Email Alert
     // Cast updatedRequest to any to access user safely, or check if user exists
     const requestWithUser = updatedRequest as any;
-    if (requestWithUser && (requestWithUser.status === "approved" || requestWithUser.status === "rejected")) {
+    if (requestWithUser && (requestWithUser.status === RequestStatus.Approved || requestWithUser.status === RequestStatus.Rejected)) {
       try {
         const requesterEmail = requestWithUser.user?.email;
 
         if (requesterEmail) {
           const { subject, html } = generateStatusEmailHtml(
             requestWithUser,
-            requestWithUser.status === "approved" ? "APPROVED" : "REJECTED",
+            requestWithUser.status === RequestStatus.Approved ? "APPROVED" : "REJECTED",
             comment
           );
 

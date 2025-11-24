@@ -389,6 +389,51 @@ export default function PurchaseRequestDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Approval Action Section (Inline) */}
+      {pendingStep && (
+        <Card className="border-orange-200 bg-orange-50/30 shadow-sm mb-6 ring-1 ring-orange-100">
+          <CardHeader className="pb-3 border-b border-orange-100">
+            <CardTitle className="text-base flex items-center gap-2 text-orange-700">
+              <AlertCircle className="w-5 h-5" /> Approval Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 md:items-start justify-between">
+              <div className="space-y-4 flex-1">
+                <p className="text-sm text-slate-600">
+                  Current Step: <strong className="text-slate-900">{pendingStep.stepName}</strong>
+                </p>
+                <Textarea
+                  placeholder="Comment (optional)..."
+                  className="bg-white border-slate-200 focus:border-orange-400 min-h-[80px] text-sm max-w-2xl"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="flex flex-row md:flex-col gap-3 md:w-48 shrink-0">
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm w-full"
+                  onClick={() => handleApprovalAction("Approved")}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve Request"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 w-full"
+                  onClick={() => handleApprovalAction("Rejected")}
+                  disabled={isSubmitting}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 3. Items List */}
       <Card className="border-slate-200 shadow-sm mb-6">
         <CardHeader className="border-b border-slate-100 pb-4">
@@ -466,48 +511,6 @@ export default function PurchaseRequestDetailPage() {
           <ActivityLog />
         </CardContent>
       </Card>
-
-      {/* Sticky Action Bar (If pending) */}
-      {pendingStep && (
-        <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-[400px] z-50">
-          <Card className="border-orange-200 bg-white shadow-xl ring-1 ring-orange-100">
-            <CardHeader className="pb-3 bg-orange-50/50 rounded-t-xl border-b border-orange-100">
-              <CardTitle className="text-base flex items-center gap-2 text-orange-700">
-                <AlertCircle className="w-5 h-5" /> Approval Required
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <p className="text-sm text-slate-600">
-                Current Step: <strong className="text-slate-900">{pendingStep.stepName}</strong>
-              </p>
-              <Textarea
-                placeholder="Comment (optional)..."
-                className="bg-white border-slate-200 focus:border-orange-400 min-h-[80px] text-sm"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                disabled={isSubmitting}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                  onClick={() => handleApprovalAction("Rejected")}
-                  disabled={isSubmitting}
-                >
-                  Reject
-                </Button>
-                <Button
-                  className="bg-orange-600 hover:bg-orange-700 text-white shadow-md shadow-orange-200"
-                  onClick={() => handleApprovalAction("Approved")}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve Request"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
     </div>
   );
