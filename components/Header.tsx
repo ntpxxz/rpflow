@@ -36,13 +36,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <span className="sr-only">Toggle sidebar</span>
       </Button>
 
-      {/* Search Bar */}
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search..."
-          className="w-full max-w-sm pl-9 bg-slate-50 border-slate-200 focus-visible:ring-orange-500"
-        />
+      {/* Search Bar (Center Alignment) */}
+      <div className="flex-1 flex justify-center px-4">
+        <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+            placeholder="Search..."
+            className="w-full pl-9 bg-slate-50 border-slate-200 focus-visible:ring-orange-500"
+            />
+        </div>
       </div>
 
       {/* Right-side Icons & User Menu */}

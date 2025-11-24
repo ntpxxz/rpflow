@@ -120,7 +120,7 @@ export default function Sidebar({ open, onClose }: Props) {
                <Box className="w-5 h-5" />
              </div>
              <div>
-                <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight block leading-none">RPFlow</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight block leading-none">KHOBUY</span>
                 <span className="text-[10px] text-slate-400 font-medium tracking-wider">PROCUREMENT</span>
              </div>
           </div>

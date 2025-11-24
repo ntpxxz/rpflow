@@ -1,13 +1,20 @@
 // lib/inventoryPrisma.ts
-import { PrismaClient } from '@prisma/client';
+// @ts-ignore
+import { PrismaClient } from '@prisma/inventory-client';
 
+const globalForPrisma = global as unknown as { inventoryPrisma: PrismaClient };
 
-const inventoryPrisma = new PrismaClient({
-  datasources: {
-    db: { // Default datasource name expected by Prisma
-      url: process.env.INVENTORY_DATABASE_URL,
+export const inventoryPrisma =
+  globalForPrisma.inventoryPrisma ||
+  new PrismaClient({
+    datasources: {
+      // 👇 แก้ตรงนี้จาก 'db' เป็น 'inventoryDb' ให้ตรงกับ schema
+      inventoryDb: { 
+        url: process.env.INVENTORY_DATABASE_URL,
+      },
     },
-  },
-});
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.inventoryPrisma = inventoryPrisma;
 
 export default inventoryPrisma;

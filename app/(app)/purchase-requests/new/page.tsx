@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, FormEvent, ChangeEvent, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -22,20 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// 🔻 ลบ/ซ่อน Imports ของ Date Picker ที่ไม่ใช้แล้ว
-import { format } from "date-fns";
-// import { Calendar as CalendarIcon } from "lucide-react";
-// import { Calendar } from "@/components/ui/calendar";
-// import {
-//   Popover,
-//   PopoverContent,
-//   PopoverTrigger,
-// } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Trash2, Loader2, Search } from "lucide-react";
+import { Trash2, Loader2, Search, Plus, ArrowLeft, Package, ShoppingCart } from "lucide-react";
 
-// (Type InventoryItem, CartItem... เหมือนเดิม)
+// Types
 type InventoryItem = {
   barcode: string;
   name: string;
@@ -54,32 +45,31 @@ type SubmitStatus = {
   message: string;
 };
 
-export default function Purchase() {
+export default function CreateRequestPage() {
+  const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // State ฟอร์ม Header
+  // Header State
   const [requesterName, setRequesterName] = useState<string>("");
   const [requestType, setRequestType] = useState<string>("");
+  const [tempDate, setTempDate] = useState<string>(""); 
 
-  // 🔻 (แก้ไข) ใช้ Date และ String State สำหรับ Input type="date"
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [tempDate, setTempDate] = useState<string>(""); // YYYY-MM-DD string
-  
-  // (State อื่นๆ... เหมือนเดิม)
+  // Item Entry State
   const [itemSearchTerm, setItemSearchTerm] = useState<string>("");
   const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [currentItemDetail, setCurrentItemDetail] = useState<string>("");
-  const [currentItemImage, setCurrentItemImage] = useState<File | undefined>(
-    undefined
-  );
+  const [currentItemImage, setCurrentItemImage] = useState<File | undefined>(undefined);
   const [currentQuantity, setCurrentQuantity] = useState<number>(1);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
+  
+  // Submission State
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus | null>(null);
+  
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // (Effect ต่างๆ... เหมือนเดิม)
+  // Search Effect
   useEffect(() => {
     if (itemSearchTerm.length < 2) {
       setSearchResults([]);
@@ -96,6 +86,7 @@ export default function Purchase() {
     return () => clearTimeout(timer);
   }, [itemSearchTerm]);
 
+  // Click Outside to Close Search
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -109,10 +100,11 @@ export default function Purchase() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchContainerRef]);
 
-  // (Handlers... handleSearchChange, handleItemSelect, handleAddItemToCart, handleRemoveItem, handleUpdateItemQuantity เหมือนเดิม)
+  // Handlers
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setItemSearchTerm(e.target.value);
   };
+
   const handleItemSelect = (item: InventoryItem) => {
     setItemSearchTerm(item.name);
     setCurrentPrice(Number(item.unit_price) || 0);
@@ -120,6 +112,7 @@ export default function Purchase() {
     setSearchResults([]);
     setCurrentQuantity(1);
   };
+
   const handleAddItemToCart = (e: FormEvent) => {
     e.preventDefault();
     if (!itemSearchTerm || currentQuantity <= 0 || currentPrice < 0) {
@@ -134,19 +127,24 @@ export default function Purchase() {
       unitPrice: currentPrice,
     };
     setCart((prev) => [...prev, newItem]);
+    
+    // Reset form
     setItemSearchTerm("");
     setCurrentItemDetail("");
     setCurrentItemImage(undefined);
     setCurrentQuantity(1);
     setCurrentPrice(0);
     setSubmitStatus(null);
+    
     const fileInput = document.getElementById("item-image") as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
+
   const handleRemoveItem = (index: number) => {
     setCart((prev) => prev.filter((_, i) => i !== index));
     setSubmitStatus(null);
   };
+
   const handleUpdateItemQuantity = (index: number, newQuantityStr: string) => {
     const newQuantity = parseInt(newQuantityStr, 10);
     const validQuantity = Math.max(1, newQuantity || 1);
@@ -158,17 +156,13 @@ export default function Purchase() {
         return item;
       })
     );
-    setSubmitStatus(null);
   };
   
-  // 🔻 (แก้ไข) Handler "ส่งใบขอซื้อ"
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    // (แก้ไข) เพิ่มการตรวจสอบ Due Date
-    const isSpecialRequest =
-      requestType === "URGENT" || requestType === "PROJECT";
+    const isSpecialRequest = requestType === "URGENT" || requestType === "PROJECT";
       
     if (cart.length === 0 || !requesterName || !requestType) {
       setSubmitStatus({
@@ -177,7 +171,7 @@ export default function Purchase() {
       });
       return;
     }
-    // 🔻 (ใช้ tempDate ในการตรวจสอบ)
+    
     if (isSpecialRequest && !tempDate) {
       setSubmitStatus({
         type: "error",
@@ -185,8 +179,8 @@ export default function Purchase() {
       });
       return;
     }
+
     const checkDate = tempDate ? new Date(tempDate) : undefined;
-    // 🛑 ตรวจสอบ Due Date ต้องไม่เป็นอดีต (สำหรับ Urgent/Project)
     if (checkDate && checkDate.getTime() < new Date().setHours(0,0,0,0) && isSpecialRequest) {
       setSubmitStatus({
         type: "error",
@@ -199,19 +193,14 @@ export default function Purchase() {
     setSubmitStatus(null);
 
     const formData = new FormData();
-    formData.append(
-      "userId",
-      process.env.NEXT_PUBLIC_TEST_REQUESTER_ID || "user_test_001"
-    );
+    formData.append("userId", process.env.NEXT_PUBLIC_TEST_REQUESTER_ID || "user_test_001");
     formData.append("requesterName", requesterName);
     formData.append("requestType", requestType);
 
-    // 🔻 (แก้ไข) ส่ง Due Date (ถ้ามี) - ใช้ tempDate ที่เป็น string
     if (tempDate && isSpecialRequest) {
       formData.append("dueDate", new Date(tempDate).toISOString());
     }
 
-    // (Items และ Images - เหมือนเดิม)
     const itemsPayload = cart.map((item) => ({
       itemName: item.itemName,
       detail: item.detail,
@@ -219,6 +208,7 @@ export default function Purchase() {
       unitPrice: item.unitPrice,
     }));
     formData.append("items", JSON.stringify(itemsPayload));
+    
     cart.forEach((item, index) => {
       if (item.image) {
         formData.append(`image_${index}`, item.image);
@@ -236,20 +226,19 @@ export default function Purchase() {
       }
       setSubmitStatus({
         type: "success",
-        message: "Purchase Request Created!",
+        message: "Purchase Request Created Successfully!",
       });
-      setCart([]);
-      setRequesterName("");
-      setRequestType("");
-      setDueDate(undefined);
-      setTempDate(""); // 👈 (ใหม่) รีเซ็ต Date string
-      window.location.href = "/dashboard";
+      
+      // Optional: Redirect after short delay or show success UI
+      setTimeout(() => {
+         router.push("/purchase-requests");
+      }, 1000);
+
     } catch (err: any) {
       setSubmitStatus({
         type: "error",
         message: err.message || "An unknown error occurred.",
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -258,150 +247,137 @@ export default function Purchase() {
     (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
-  const canAddItem =
-    itemSearchTerm !== "" && currentQuantity > 0 && currentPrice >= 0;
-
-  // 🔻 (แก้ไข) เงื่อนไข Can Submit
-  const canSubmit =
-    cart.length > 0 &&
-    requesterName !== "" &&
-    requestType !== "" &&
-    !isSubmitting &&
-    (requestType === "NORMAL" ||
-      ((requestType === "URGENT" || requestType === "PROJECT") && tempDate !== ""));
-
+  const canAddItem = itemSearchTerm !== "" && currentQuantity > 0 && currentPrice >= 0;
+  const canSubmit = cart.length > 0 && requesterName !== "" && requestType !== "" && !isSubmitting;
 
   return (
-    <div className="space-y-6">
-      {/* 🔻 (ใหม่) เพิ่ม Header สำหรับหน้า 🔻 */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Create Purchase Request</h1>
+    <div className="space-y-6 max-w-8xl mx-auto pb-10 font-sans">
+      
+      {/* Header */}
+      <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-slate-100 text-slate-500">
+            <ArrowLeft className="h-6 w-6" />
+        </Button>
+        <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Create Purchase Request</h1>
+            <p className="text-sm text-muted-foreground">Fill in the details below to submit a new requisition.</p>
+        </div>
       </div>
 
-      {/* --- ฟอร์ม "Request Details" (แก้ไข) --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Request Details</CardTitle>
+      {/* 1. Request Details Card */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-4 border-b border-slate-50/50">
+          <CardTitle className="text-base font-semibold text-slate-800">Request Details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 🔻 (แก้ไข) เปลี่ยนเป็น Grid 3 คอลัมน์ */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="requester">
-                Requester <span className="text-red-500">*</span>
+              <Label htmlFor="requester" className="text-slate-600">
+                Requester Name <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="requester"
                 value={requesterName}
                 onChange={(e) => setRequesterName(e.target.value)}
-                placeholder="Your name"
+                placeholder="e.g. John Doe"
                 disabled={isSubmitting}
+                className="bg-white"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="req-type">
-                Type of Request <span className="text-red-500">*</span>
+              <Label htmlFor="req-type" className="text-slate-600">
+                Request Type <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={requestType}
                 onValueChange={(value) => {
                   setRequestType(value);
-                  // 🔻 เมื่อเปลี่ยนเป็น Normal ให้เคลียร์ DueDate
                   if (value === 'NORMAL') {
-                      setDueDate(undefined);
                       setTempDate('');
                   }
                 }}
                 disabled={isSubmitting}
               >
-                <SelectTrigger id="req-type" className="w-full">
+                <SelectTrigger id="req-type" className="w-full bg-white">
                   <SelectValue placeholder="Select type..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NORMAL">Normal (Auto 7 days)</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
-                  <SelectItem value="PROJECT">Project</SelectItem>
+                  <SelectItem value="NORMAL">Normal (Standard Process)</SelectItem>
+                  <SelectItem value="URGENT">Urgent (Expedited)</SelectItem>
+                  <SelectItem value="PROJECT">Project (Specific Date)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="due-date">
+              <Label htmlFor="due-date" className="text-slate-600">
                 Due Date
-                {/* 🔻 แสดง * ถ้าไม่ใช่ Normal */}
-                {requestType !== "NORMAL" && (
-                  <span className="text-red-500">*</span>
-                )}
+                {requestType !== "NORMAL" && <span className="text-red-500"> *</span>}
               </Label>
-              {/* 🔻 ใช้ Input type="date" กลับคืนมา */}
               <Input
                 id="due-date"
                 type="date"
                 value={tempDate}
-                onChange={(e) => {
-                  setTempDate(e.target.value);
-                  // ถ้าต้องการเก็บเป็น Date object ควบคู่ไปด้วย:
-                  setDueDate(e.target.value ? new Date(e.target.value) : undefined);
-                }}
-                // กำหนดวันที่เริ่มต้น (วันนี้)
+                onChange={(e) => setTempDate(e.target.value)}
                 min={new Date().toISOString().split("T")[0]}
-                disabled={isSubmitting || requestType === "NORMAL"} // ปิดถ้าเป็น Normal
-                placeholder={requestType === "NORMAL" ? "Auto-set to 7 days" : "Pick a date"}
+                disabled={isSubmitting || requestType === "NORMAL"} 
+                className={cn("bg-white", requestType === "NORMAL" && "bg-slate-50 text-slate-400")}
               />
-              {/* 🔺 สิ้นสุด Input type="date" 🔺 */}
+              {requestType === "NORMAL" && (
+                  <p className="text-[10px] text-slate-400">Auto-set to 7 days for Normal requests.</p>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
       
-      {/* --- 10. 👈 ฟอร์มสำหรับ "เพิ่ม" สินค้า (Hybrid) --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Item</CardTitle>
+      {/* 2. Add Item Card */}
+      <Card className="border-slate-200 shadow-sm overflow-visible">
+        <CardHeader className="pb-4 border-b border-slate-50/50 bg-slate-50/30">
+          <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-orange-500"/> Add Item
+          </CardTitle>
         </CardHeader>
-        <form onSubmit={handleAddItemToCart}>
-          <CardContent className="space-y-4">
-            {/*แถว 1: Item Name / Price / Qty */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* --- ช่องค้นหา (กิน 2 ส่วน) --- */}
-              <div className="md:col-span-2 space-y-2" ref={searchContainerRef}>
-                <Label htmlFor="item-name">
-                  Item Name (Search or Type){" "}
-                  <span className="text-red-500">*</span>
+        <CardContent className="pt-6">
+          <form onSubmit={handleAddItemToCart}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              
+              {/* Item Name (Search) - 6 cols */}
+              <div className="md:col-span-6 space-y-2" ref={searchContainerRef}>
+                <Label htmlFor="item-name" className="text-slate-600">
+                  Item Name <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
                   <Input
                     id="item-name"
                     value={itemSearchTerm}
                     onChange={handleSearchChange}
-                    placeholder="Type name or search..."
+                    placeholder="Search inventory or type new item..."
                     disabled={isSubmitting}
                     autoComplete="off"
-                    className="pl-8"
+                    className="pl-9 bg-white focus-visible:ring-orange-500"
                   />
-                  <span className="absolute left-2.5 top-[11px] text-muted-foreground pointer-events-none">
-                    {isSearching ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Search className="size-4" />
-                    )}
-                  </span>
+                  {isSearching && (
+                    <div className="absolute right-3 top-2.5">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    </div>
+                  )}
 
-                  {/* --- UI ผลการค้นหา --- */}
+                  {/* Search Results Dropdown */}
                   {searchResults.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto rounded-md border bg-background shadow-lg">
+                    <div className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl ring-1 ring-black/5">
                       {searchResults.map((item) => (
                         <div
                           key={item.barcode}
-                          className="p-3 cursor-pointer hover:bg-accent"
+                          className="p-3 cursor-pointer hover:bg-orange-50 hover:text-orange-900 transition-colors border-b border-slate-50 last:border-0"
                           onClick={() => handleItemSelect(item)}
                           onMouseDown={(e) => e.preventDefault()}
                         >
-                          <p className="font-medium">
-                            {item.name} ({item.barcode})
-                          </p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            ฿{Number(item.unit_price).toFixed(2)}
-                          </p>
+                          <p className="font-medium text-sm">{item.name}</p>
+                          <div className="flex justify-between items-center mt-1">
+                              <p className="text-xs text-slate-500 font-mono">{item.barcode}</p>
+                              <p className="text-xs font-bold text-slate-700">฿{Number(item.unit_price).toFixed(2)}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -409,25 +385,28 @@ export default function Purchase() {
                 </div>
               </div>
 
-              {/* --- ราคา (กิน 1 ส่วน) --- */}
-              <div className="space-y-2">
-                <Label htmlFor="price">
+              {/* Unit Price - 3 cols */}
+              <div className="md:col-span-3 space-y-2">
+                <Label htmlFor="price" className="text-slate-600">
                   Unit Price <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min={0}
-                  value={currentPrice}
-                  onChange={(e) => setCurrentPrice(Number(e.target.value))}
-                  disabled={isSubmitting}
-                  placeholder="0.00"
-                />
+                <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">฿</span>
+                    <Input
+                    id="price"
+                    type="number"
+                    min={0}
+                    value={currentPrice}
+                    onChange={(e) => setCurrentPrice(Number(e.target.value))}
+                    disabled={isSubmitting}
+                    className="pl-7 bg-white text-right font-medium"
+                    />
+                </div>
               </div>
 
-              {/* --- จำนวน (กิน 1 ส่วน) --- */}
-              <div className="space-y-2">
-                <Label htmlFor="quantity">
+              {/* Quantity - 3 cols */}
+              <div className="md:col-span-3 space-y-2">
+                <Label htmlFor="quantity" className="text-slate-600">
                   Quantity <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -437,114 +416,132 @@ export default function Purchase() {
                   value={currentQuantity}
                   onChange={(e) => setCurrentQuantity(Number(e.target.value))}
                   disabled={isSubmitting}
+                  className="bg-white text-center font-medium"
                 />
               </div>
-            </div>
 
-            {/* 11. 👈 แถว 2: Detail */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="item-detail">
-                  Detail / Description (Optional)
-                </Label>
+              {/* Description - 6 cols */}
+              <div className="md:col-span-6 space-y-2">
+                <Label htmlFor="item-detail" className="text-slate-600">Description (Optional)</Label>
                 <Textarea
                   id="item-detail"
                   value={currentItemDetail}
                   onChange={(e) => setCurrentItemDetail(e.target.value)}
-                  placeholder="Specifics, model, color, etc."
+                  placeholder="Size, color, model, specifications..."
                   disabled={isSubmitting}
+                  className="bg-white resize-none h-[88px]"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="item-image">Image (Optional)</Label>
-                <Input
-                  id="item-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    setCurrentItemImage(
-                      e.target.files ? e.target.files[0] : undefined
-                    );
-                  }}
-                  disabled={isSubmitting}
-                />
+
+              {/* Image - 6 cols */}
+              <div className="md:col-span-6 space-y-2">
+                <Label htmlFor="item-image" className="text-slate-600">Image Reference (Optional)</Label>
+                <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative h-[88px]">
+                    <Input
+                        id="item-image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                            setCurrentItemImage(e.target.files ? e.target.files[0] : undefined);
+                        }}
+                        disabled={isSubmitting}
+                        className="absolute inset-0 opacity-0 cursor-pointer h-full"
+                    />
+                    {currentItemImage ? (
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium">
+                            <Package className="w-4 h-4" />
+                            {currentItemImage.name}
+                        </div>
+                    ) : (
+                        <div className="text-slate-400 flex flex-col items-center">
+                             <Plus className="w-5 h-5 mb-1" />
+                             <span className="text-xs">Click to upload image</span>
+                        </div>
+                    )}
+                </div>
               </div>
             </div>
-            <div className="flex justify-end" >
+
+            <div className="flex justify-end mt-6">
               <Button
                 type="submit"
                 disabled={!canAddItem || isSubmitting}
-                className="mt-4"
-                size="lg"
+                className="text-white hover:bg-slate-800"
               >
-                Add to Request
+                <Plus className="w-4 h-4 mr-2" /> Add to Cart
               </Button>
             </div>
-          </CardContent>
-        </form>
+          </form>
+        </CardContent>
       </Card>
 
-      {/* --- ตาราง "ตะกร้าสินค้า" (เหมือนเดิม) --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Request Items</CardTitle>
+      {/* 3. Request Items Table */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+             <ShoppingCart className="w-4 h-4 text-slate-400" /> Cart Items
+             <span className="ml-2 bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-normal">
+                {cart.length}
+             </span>
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
+        <CardContent className="p-0">
             <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                  <TableHead>Item</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Unit Price</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Action</TableHead>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <TableHead className="pl-6 h-10 text-xs font-bold text-slate-500 uppercase tracking-wide w-[40%]">Item Description</TableHead>
+                  <TableHead className="h-10 text-xs font-bold text-slate-500 uppercase tracking-wide text-center">Qty</TableHead>
+                  <TableHead className="h-10 text-xs font-bold text-slate-500 uppercase tracking-wide text-right">Unit Price</TableHead>
+                  <TableHead className="h-10 text-xs font-bold text-slate-500 uppercase tracking-wide text-right pr-6">Total</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cart.length === 0 ? (
-                  <TableRow className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                    <TableCell
-                      colSpan={6}
-                      className="text-center text-muted-foreground"
-                    >
-                      No items added yet.
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                       <div className="flex flex-col items-center justify-center gap-2">
+                           <ShoppingCart className="w-8 h-8 text-slate-200" />
+                           <p>Your cart is empty.</p>
+                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   cart.map((item, index) => (
-                    <TableRow
-                      key={index}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground truncate w-48">
-                          {item.itemName || "-"}
-                        </div>
+                    <TableRow key={index} className="group hover:bg-slate-50/50 border-b border-slate-50">
+                      <TableCell className="pl-6 py-4">
+                        <div className="font-medium text-slate-900">{item.itemName}</div>
+                        {item.detail && <div className="text-xs text-slate-500 mt-1">{item.detail}</div>}
+                        {item.image && (
+                             <div className="text-[10px] text-emerald-600 flex items-center gap-1 mt-1">
+                                <Package className="w-3 h-3" /> Image attached
+                             </div>
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center py-4">
                         <Input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) =>
-                            handleUpdateItemQuantity(index, e.target.value)
-                          }
+                          onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
                           min={1}
-                          className="h-9 w-20" 
+                          className="w-16 text-center h-8 mx-auto bg-white border-slate-200"
                           disabled={isSubmitting}
                         />
                       </TableCell>
-                      <TableCell>฿{item.unitPrice.toFixed(2)}</TableCell>
-                      <TableCell>
-                        ฿{(item.quantity * item.unitPrice).toFixed(2)}
+                      <TableCell className="text-right py-4 text-slate-600">
+                        ฿{item.unitPrice.toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right py-4 pr-6 font-bold text-slate-900">
+                        ฿{(item.quantity * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="py-4">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemoveItem(index)}
                           disabled={isSubmitting}
+                          className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -554,38 +551,31 @@ export default function Purchase() {
                 )}
               </TableBody>
             </Table>
-
-            {/* --- ส่วน Submit (เหมือนเดิม) --- */}
-            <div className="mt-6 flex justify-between items-center gap-4">
-              <h3 className="text-xl font-bold">Total: ฿{total.toFixed(2)}</h3>
-
-              <div className="flex items-center gap-4">
-                {submitStatus && (
-                  <p
-                    className={
-                      submitStatus.type === "success"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }
-                  >
-                    {submitStatus.message}
-                  </p>
-                )}
-
-                <Button type="submit" size="lg" disabled={!canSubmit}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit Request"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </form>
         </CardContent>
+        
+        <CardFooter className="flex flex-col sm:flex-row justify-between items-center border-t border-slate-100 bg-slate-50/50 p-6 gap-4">
+            <div className="flex flex-col items-start">
+                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Estimated Cost</span>
+                 <span className="text-3xl font-bold text-orange-600">฿{total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+                {submitStatus && (
+                   <span className={cn("text-sm font-medium", submitStatus.type === "success" ? "text-emerald-600" : "text-red-600")}>
+                      {submitStatus.message}
+                   </span>
+                )}
+                <Button 
+                    type="button" // Changed to button to trigger onClick properly inside form context if needed, but here separate
+                    onClick={handleSubmit}
+                    size="lg" 
+                    disabled={!canSubmit}
+                    className="bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md w-full sm:w-auto px-8"
+                >
+                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Submit Request"}
+                </Button>
+            </div>
+        </CardFooter>
       </Card>
     </div>
   );

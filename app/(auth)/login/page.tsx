@@ -59,7 +59,7 @@ export default function LoginPage() {
           Welcome back
         </CardTitle>
         <CardDescription>
-          Enter your credentials to access RPFlow
+          Enter your credentials to access KHOBUY 
         </CardDescription>
       </CardHeader>
       
@@ -88,10 +88,6 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <span className="text-xs text-orange-600 cursor-pointer hover:underline">Forgot password?</span>
-            </div>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
               <Input 
