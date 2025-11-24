@@ -11,7 +11,7 @@ async function getProcurementQueue() {
     where: {
       // 1. ต้องมาจาก PR ที่ "approved"
       request: {
-        status: "approved", // (lowercase)
+        status: "Approved", // (PascalCase)
       },
       // 2. ต้องมีของค้างสั่ง
       // (เช็คว่า quantity > quantityOrdered)
@@ -21,7 +21,7 @@ async function getProcurementQueue() {
     },
     include: {
       // ดึงข้อมูล PR แม่มาด้วยเพื่อแสดงผล
-      request: { 
+      request: {
         select: {
           id: true,
           requesterName: true,

@@ -1,7 +1,7 @@
 // app/api/approval-steps/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client"; // 👈 1. Import Type สำหรับ Transaction
+import { Prisma } from "@prisma/client";
 import nodemailer from "nodemailer";
 
 const GMAIL_USER = process.env.GMAIL_USER;
@@ -15,25 +15,20 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-//Create Email Template for Requester
-/**
- * Generates the email HTML for the requester after an action.
- */
+// Create Email Template for Requester
 function generateStatusEmailHtml(
   request: { id: string },
   status: "APPROVED" | "REJECTED",
   comment: string | null
 ): { subject: string; html: string } {
-  
+
   const isApproved = status === "APPROVED";
-  
+
   // Set Subject
   const subject = `[PR Status Update] Your request ${request.id} has been ${status.toLowerCase()}`;
-  
+
   // Set Link
-  const viewUrl = `${
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-  }/purchase-requests/${request.id}`;
+  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/purchase-requests/${request.id}`;
 
   // Set styles based on status
   let statusBoxStyle = isApproved
@@ -51,10 +46,9 @@ function generateStatusEmailHtml(
 
     ${comment ? `<p><strong>Approver's Comment:</strong> ${comment}</p>` : ""}
 
-    ${
-      isApproved
-        ? "<p>Your request has been fully approved and is now being processed by Procurement.</p>"
-        : "<p>Your request was rejected. Please review the comment and contact your manager if necessary.</p>"
+    ${isApproved
+      ? "<p>Your request has been fully approved and is now being processed by Procurement.</p>"
+      : "<p>Your request was rejected. Please review the comment and contact your manager if necessary.</p>"
     }
     
     <br>
@@ -66,31 +60,23 @@ function generateStatusEmailHtml(
     <p>Thank you,</p>
     <p>The System</p>
   `;
-  
+
   return { subject, html };
 }
-// GET: ดึงรายการทั้งหมด (ทั้ง Pending และ Done)
+
+// GET: Fetch all approval steps
 export async function GET(req: NextRequest) {
   try {
-    // 🔴 TODO: ในอนาคต เมื่อเชื่อม Auth แล้ว
-    // ให้ดึง session และเพิ่มเงื่อนไข where: { approverId: session.user.id }
-    // เพื่อให้ Approver เห็นเฉพาะงานของตัวเอง
-    
     const steps = await prisma.approvalStep.findMany({
-      where: {
-        // 2. 🔻🔻 (แก้ไขจากเดิม) 🔻🔻
-        // ลบเงื่อนไข status: "Pending" ออก
-        // เพื่อให้ดึงข้อมูลทั้งที่รออนุมัติและที่อนุมัติไปแล้ว (สำหรับ Tab History)
-      },
-      // 🔺🔺 (สิ้นสุดการแก้ไข) 🔺🔺
+      where: {},
       include: {
-        request: { 
+        request: {
           include: {
-            user: true, 
+            user: true,
             items: true
           }
         },
-        approver: true 
+        approver: true
       },
       orderBy: { request: { createdAt: "desc" } }
     });
@@ -101,29 +87,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// PATCH: Update approval step status
 export async function PATCH(req: NextRequest) {
   try {
     const { approvalStepId, newStatus, comment, actorId } = await req.json();
 
     if (!approvalStepId || !newStatus || !actorId) {
-      // ... (error handling)
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     const newStatusLower = newStatus.toLowerCase();
     if (newStatusLower !== "approved" && newStatusLower !== "rejected") {
-      // ... (error handling)
+      return NextResponse.json({ message: "Invalid status" }, { status: 400 });
     }
 
-    // 4. 🔻 (MODIFIED) Store the result of the transaction
+    // Use lowercase for Prisma Enums as suggested by linter
+    const prismaStatus = newStatusLower === "approved" ? "approved" : "rejected";
+
     const updatedRequest = await prisma.$transaction(async (tx) => {
-      
       // 1. Update Step
       const updatedStep = await tx.approvalStep.update({
         where: { id: approvalStepId },
         data: {
-          status: newStatusLower,
+          status: prismaStatus,
           comment: comment,
-          approvedAt: newStatusLower === "approved" ? new Date() : null,
+          approvedAt: prismaStatus === "approved" ? new Date() : null,
         },
       });
 
@@ -132,23 +120,21 @@ export async function PATCH(req: NextRequest) {
         data: {
           requestId: updatedStep.requestId,
           actorId: actorId,
-          action: newStatus.toUpperCase(),
+          action: prismaStatus.toUpperCase(),
           details: `Step "${updatedStep.stepName}" by ${actorId}. Comment: ${comment || ''}`,
         },
       });
 
       // 3. Update main PR (Budget check logic)
-      let finalRequest; // 👈 (NEW) To store the final updated PR
+      let finalRequest;
 
-      if (newStatusLower === "rejected") {
+      if (prismaStatus === "rejected") {
         finalRequest = await tx.purchaseRequest.update({
           where: { id: updatedStep.requestId },
           data: { status: "rejected" },
-          // 5. 🔻 (MODIFIED) Include the user to get their email
           include: { user: { select: { email: true, name: true } } }
         });
-
-      } else if (newStatusLower === "approved") {
+      } else if (prismaStatus === "approved") {
         const pendingSteps = await tx.approvalStep.count({
           where: {
             requestId: updatedStep.requestId,
@@ -158,8 +144,8 @@ export async function PATCH(req: NextRequest) {
 
         if (pendingSteps === 0) {
           const request = await tx.purchaseRequest.findUnique({
-             where: { id: updatedStep.requestId },
-             select: { totalAmount: true }
+            where: { id: updatedStep.requestId },
+            select: { totalAmount: true }
           });
           const totalAmount = Number(request?.totalAmount) || 0;
 
@@ -169,62 +155,60 @@ export async function PATCH(req: NextRequest) {
             finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
               data: { status: "approved" },
-              // 5. 🔻 (MODIFIED) Include the user to get their email
               include: { user: { select: { email: true, name: true } } }
             });
 
-            // (บันทึก History ว่า Budget OK)
             await tx.requestHistory.create({
               data: {
                 requestId: updatedStep.requestId,
-                actorId: actorId, // หรือใช้ ID ของ "System"
+                actorId: actorId,
                 action: "BUDGET_APPROVED",
                 details: `Budget check passed (Amount: ${totalAmount}). Ready for PO.`,
               },
             });
-
           } else {
-            // 4.5 ถ้า งบไม่พอ (Budget OK? -> No): อัปเดตใบ PR หลักเป็น "Rejected"
-              finalRequest = await tx.purchaseRequest.update({
+            finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
-              data: { status: "rejected" }, 
+              data: { status: "rejected" },
               include: { user: { select: { email: true, name: true } } }
             });
-            
-            // (บันทึก History ว่า งบไม่พอ)
-             await tx.requestHistory.create({
+
+            await tx.requestHistory.create({
               data: {
                 requestId: updatedStep.requestId,
-                actorId: actorId, // หรือใช้ ID ของ "System"
+                actorId: actorId,
                 action: "BUDGET_REJECTED",
                 details: `Budget check failed. Amount ${totalAmount} exceeds available budget.`,
               },
             });
-          }          
+          }
         }
       }
 
-      // 6. 🔻 (NEW) If no final action, just get the current PR
       if (!finalRequest) {
         finalRequest = await tx.purchaseRequest.findUnique({
           where: { id: updatedStep.requestId },
           include: { user: { select: { email: true, name: true } } }
         });
       }
-      
-      return finalRequest; // 👈 (NEW) Return the final request from the transaction
-    });// 7. 🔻 (NEW) Send Email Alert (AFTER the transaction)
-    if (updatedRequest && (updatedRequest.status === "approved" || updatedRequest.status === "rejected")) {
+
+      return finalRequest;
+    });
+
+    // Send Email Alert
+    // Cast updatedRequest to any to access user safely, or check if user exists
+    const requestWithUser = updatedRequest as any;
+    if (requestWithUser && (requestWithUser.status === "approved" || requestWithUser.status === "rejected")) {
       try {
-        const requesterEmail = "nattapon.m@minebea.co.th";
-        
+        const requesterEmail = requestWithUser.user?.email;
+
         if (requesterEmail) {
           const { subject, html } = generateStatusEmailHtml(
-            updatedRequest,
-            updatedRequest.status === "approved" ? "APPROVED" : "REJECTED",
+            requestWithUser,
+            requestWithUser.status === "approved" ? "APPROVED" : "REJECTED",
             comment
           );
-          
+
           console.log(`\n📧 Sending status update email to: ${requesterEmail}`);
           await transporter.sendMail({
             from: `Purchase Request System <${GMAIL_USER}>`,
@@ -233,12 +217,10 @@ export async function PATCH(req: NextRequest) {
             html: html
           });
           console.log("✅ Status update email sent!");
-
         } else {
-          console.warn(`[Email Warn] No email found for requester on PR: ${updatedRequest.id}`);
+          console.warn(`[Email Warn] No email found for requester on PR: ${requestWithUser.id}`);
         }
       } catch (emailError) {
-        // Log the error but don't fail the API, the DB update was successful
         console.error("❌ [EMAIL_ERROR] Failed to send status update email:", emailError);
       }
     }
@@ -250,47 +232,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: "Something went wrong" }, { status: 500 });
   }
 }
-/**
- * 🔻🔻 (ฟังก์ชันใหม่ที่ต้องสร้าง) 🔻🔻
- * ฟังก์ชันจำลองสำหรับตรวจสอบและจองงบประมาณ
- * * @param tx - Prisma Transaction Client (เพื่อให้การจองงบอยู่ใน Transaction เดียวกัน)
- * @param requestId - ID ของใบ PR
- * @param totalAmount - ยอดเงินที่ขอ
- * @returns Promise<boolean> - คืนค่า true ถ้างบพอ, false ถ้างบไม่พอ
- * 
- */
+
 async function checkAndReserveBudget(
   tx: Prisma.TransactionClient,
   requestId: string,
   totalAmount: number
 ): Promise<boolean> {
-  
-  // 🔴 TODO: นี่คือ Logic จำลอง (Mock Logic)
-  // คุณต้องสร้างระบบงบประมาณจริง (เช่น สร้างตาราง Budget ใน Prisma)
-  // และเขียน Logic Query/Update ในส่วนนี้แทน
-
   console.log(`[Budget Check] Checking budget for Request ID: ${requestId}, Amount: ${totalAmount}`);
+  const availableBudget = 100000; // Mock budget
 
-  // 1. (สมมติ) ดึงงบประมาณคงเหลือของแผนกนี้
-  // (ตอนนี้เรายังไม่มี "แผนก" ใน PR, จึงสมมติเป็นงบรวม)
-  // const departmentBudget = await tx.budget.findUnique({ where: { department: '...' } });
-  const availableBudget = 100000; // 👈 (ตัวเลขสมมติ)
-
-  // 2. เปรียบเทียบ
   if (totalAmount <= availableBudget) {
-    // 3. ถ้างบพอ -> "จอง" งบประมาณ (Reserve Budget)
-    // await tx.budget.update({
-    //   where: { id: departmentBudget.id },
-    //   data: {
-    //     remainingAmount: departmentBudget.remainingAmount - totalAmount,
-    //     reservedAmount: departmentBudget.reservedAmount + totalAmount
-    //   }
-    // });
-    
     console.log(`[Budget Check] OK. Budget reserved.`);
     return true;
   } else {
-    // 4. ถ้างบไม่พอ
     console.warn(`[Budget Check] FAILED. Not enough budget.`);
     return false;
   }

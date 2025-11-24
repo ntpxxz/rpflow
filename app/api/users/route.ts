@@ -6,9 +6,7 @@ import { prisma } from "@/lib/prisma"; // 👈 1. Import singleton client
 // GET all users
 export async function GET() {
   try { // 👈 2. เพิ่ม Error Handling
-    const users = await prisma.user.findMany({ 
-      orderBy: { createdAt: "desc" } 
-    });
+    const users = await prisma.user.findMany(); // Removed orderBy: { createdAt: "desc" }
     return NextResponse.json(users);
   } catch (error) {
     console.error(error);
@@ -60,11 +58,11 @@ export async function DELETE(req: NextRequest) {
   try { // 👈 2. เพิ่ม Error Handling
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    
+
     if (!id) {
       return NextResponse.json({ message: "ID required" }, { status: 400 });
     }
-    
+
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {

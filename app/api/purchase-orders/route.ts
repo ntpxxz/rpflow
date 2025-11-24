@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
 
     // 1. รับ "items" (Array of objects) 
     // 🔻 (แก้ไข) คาดหวัง unitPrice และ quantity ใน payload ด้วย
-    const { items } = await req.json(); 
+    const { items } = await req.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { message: "items (Array of {id, quotationNumber, unitPrice, quantity}) is required" }, 
+        { message: "items (Array of {id, quotationNumber, unitPrice, quantity}) is required" },
         { status: 400 }
       );
     }
@@ -22,24 +22,24 @@ export async function POST(req: NextRequest) {
     const itemDetailsMap = new Map<string, { quotationNumber: string | null, unitPrice: number | undefined, quantity?: number }>(
       items.map((item: { id: string; quotationNumber: string | null; unitPrice?: number; quantity?: number }) => [
         item.id,
-        { 
-            quotationNumber: item.quotationNumber || null,
-            unitPrice: item.unitPrice, 
-            quantity: item.quantity // 🟢 รับ Quantity ที่แก้ไขแล้ว
+        {
+          quotationNumber: item.quotationNumber || null,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity // 🟢 รับ Quantity ที่แก้ไขแล้ว
         },
       ])
     );
-    
+
     const requestItemIds = items.map((item: { id: string }) => item.id);
 
     const newPoNumber = await generateNextPoNumber();
 
     const newPurchaseOrder = await prisma.$transaction(async (tx) => {
-      
+
       // 2.1 ดึง RequestItems ต้นทาง
       const itemsToOrder = await tx.requestItem.findMany({
         where: {
-          id: { in: requestItemIds }, 
+          id: { in: requestItemIds },
           request: {
             status: "approved",
           },
@@ -70,20 +70,20 @@ export async function POST(req: NextRequest) {
       // 2.3 สร้าง PO Items (วนลูป)
       for (const item of itemsToOrder) {
         const details = itemDetailsMap.get(item.id);
-        
+
         // 🟢 FIX: ใช้ Quantity จาก Frontend ถ้ามี, ถ้าไม่มีใช้ Quantity ที่เหลือจาก DB
         const maxAvailableQuantity = item.quantity - item.quantityOrdered;
-        
-        const quantityToOrder = 
-            (details?.quantity !== undefined && details.quantity <= maxAvailableQuantity) 
-            ? details.quantity 
+
+        const quantityToOrder =
+          (details?.quantity !== undefined && details.quantity <= maxAvailableQuantity)
+            ? details.quantity
             : maxAvailableQuantity; // ใช้ QTY ที่ส่งมา แต่ต้องไม่เกินที่เหลือ
 
         // ใช้ราคาที่ส่งมาจาก Frontend ถ้ามี
-        const finalUnitPrice = 
-            details?.unitPrice !== undefined ? 
-            new Decimal(details.unitPrice) : 
-            item.unitPrice; 
+        const finalUnitPrice =
+          details?.unitPrice !== undefined ?
+            new Decimal(details.unitPrice) :
+            item.unitPrice;
 
         // 2.4 สร้าง PurchaseOrderItem
         await tx.purchaseOrderItem.create({
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(newPurchaseOrder, { status: 201 });
-    
+
   } catch (error) {
     console.error("[PURCHASE_ORDER_POST]", error);
     const errorMessage = error instanceof Error ? error.message : "Internal Error";

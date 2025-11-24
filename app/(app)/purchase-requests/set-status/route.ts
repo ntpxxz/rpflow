@@ -10,26 +10,30 @@ export async function PATCH(req: NextRequest) {
   try {
     // 🔴 TODO: (อนาคต) เพิ่มการตรวจสอบ Role (ต้องเป็น Purchaser/Admin)
     // const actorId = ...
-    
-    const { requestIds, newStatus } = await req.json();
+
+    let { requestIds, newStatus } = await req.json();
 
     if (!Array.isArray(requestIds) || requestIds.length === 0 || !newStatus) {
-       return NextResponse.json({ message: "requestIds (Array) and newStatus are required" }, { status: 400 });
+      return NextResponse.json({ message: "requestIds (Array) and newStatus are required" }, { status: 400 });
     }
-    
+
+    // Normalize status
+    if (newStatus === "Approved") newStatus = "approved";
+    if (newStatus === "awaitingQuotation") newStatus = "awaiting_quotation";
+
     // (Validate สถานะใหม่)
-    if (newStatus !== "awaitingQuotation" && newStatus !== "approved") {
-         return NextResponse.json({ message: "Invalid target status" }, { status: 400 });
+    if (newStatus !== "awaiting_quotation" && newStatus !== "approved") {
+      return NextResponse.json({ message: "Invalid target status" }, { status: 400 });
     }
 
     await prisma.purchaseRequest.updateMany({
       where: {
         id: { in: requestIds },
         // (อัปเดตจากสถานะที่ถูกต้องเท่านั้น)
-        status: { in: ["approved", "awaitingQuotation"] } 
+        status: { in: ["approved", "awaiting_quotation"] }
       },
       data: {
-        status: newStatus 
+        status: newStatus
       }
     });
 
