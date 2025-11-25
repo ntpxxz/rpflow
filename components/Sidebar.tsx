@@ -15,6 +15,7 @@ import {
   PieChart,
   Settings,
   Box,
+  HandCoins,
 } from "lucide-react";
 
 interface Props {
@@ -36,8 +37,8 @@ type MenuGroup = {
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  
-  const userRole = (session?.user as any)?.role?.toLowerCase() || "requester"; 
+
+  const userRole = (session?.user as any)?.role?.toLowerCase() || "requester";
 
   const dashboardMenu: MenuItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -76,7 +77,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
   const operationItems: MenuItem[] = [];
   operationItems.push(...requesterMenu);
-  
+
   if (userRole === "admin" || userRole === "approver") {
     operationItems.push(...approverMenu);
   }
@@ -116,62 +117,62 @@ export default function Sidebar({ open, onClose }: Props) {
       >
         <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
-             <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-md">
-               <Box className="w-5 h-5" />
-             </div>
-             <div>
-                <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight block leading-none">KHOBUY</span>
-                <span className="text-[10px] text-slate-400 font-medium tracking-wider">PROCUREMENT</span>
-             </div>
+            <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-md">
+              <HandCoins className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight block leading-none">KHOBUY</span>
+              <span className="text-[10px] text-slate-400 font-medium tracking-wider">PROCUREMENT</span>
+            </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
-           {menuGroups.map((group, groupIndex) => (
-             <div key={groupIndex}>
-                {group.label && (
-                  <div className="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    {group.label}
-                  </div>
-                )}
-                
-                <div className="space-y-1">
-                  {group.items.map((l) => {
-                      const Icon = l.icon;
-                      const isActive = 
-                        pathname === l.href || 
-                        (l.href !== '/' && 
-                         pathname.startsWith(`${l.href}/`) && 
-                         !(l.href === '/purchase-requests' && pathname === '/purchase-requests/new')
-                        );
-                      
-                      return (
-                        <Link
-                          key={l.href}
-                          href={l.href}
-                          onClick={onClose}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
-                            isActive
-                              ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400" 
-                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                          )}
-                        >
-                          {isActive && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-orange-500 rounded-r-full" />
-                          )}
-
-                          <Icon className={cn(
-                            "w-5 h-5 transition-colors", 
-                            isActive ? "text-orange-600 dark:text-orange-400" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
-                          )} />
-                          <span className={cn(isActive && "font-semibold")}>{l.name}</span>
-                        </Link>
-                      );
-                    })}
+          {menuGroups.map((group, groupIndex) => (
+            <div key={groupIndex}>
+              {group.label && (
+                <div className="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  {group.label}
                 </div>
-             </div>
-           ))}
+              )}
+
+              <div className="space-y-1">
+                {group.items.map((l) => {
+                  const Icon = l.icon;
+                  const isActive =
+                    pathname === l.href ||
+                    (l.href !== '/' &&
+                      pathname.startsWith(`${l.href}/`) &&
+                      !(l.href === '/purchase-requests' && pathname === '/purchase-requests/new')
+                    );
+
+                  return (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
+                        isActive
+                          ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                      )}
+                    >
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-orange-500 rounded-r-full" />
+                      )}
+
+                      <Icon className={cn(
+                        "w-5 h-5 transition-colors",
+                        isActive ? "text-orange-600 dark:text-orange-400" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
+                      )} />
+                      <span className={cn(isActive && "font-semibold")}>{l.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </aside>
     </>

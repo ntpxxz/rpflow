@@ -174,7 +174,7 @@ export default function PurchaseRequestDetailPage() {
       { key: "SUBMITTED", label: "Submitted", icon: FileText, date: history.find(h => h.action.includes("SUBMITTED"))?.timestamp },
       { key: "APPROVED", label: "Approved", icon: Check, date: history.find(h => h.action.includes("APPROVED"))?.timestamp },
       { key: "PO_CREATED", label: "Ordered", icon: ShoppingCart, date: history.find(h => h.action === "PO_CREATED")?.timestamp },
-      { key: "RECEIVED", label: "Received", icon: Package, date: requestDetails.status === "received" ? requestDetails.updatedAt : null },
+      { key: "RECEIVED", label: "Received", icon: Package, date: (requestDetails.status as string) === "received" ? requestDetails.updatedAt : null },
     ];
 
     let activeIndex = -1;
@@ -369,7 +369,7 @@ export default function PurchaseRequestDetailPage() {
               <div>
                 <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Budget</p>
                 <p className="text-sm font-bold text-slate-900 mt-0.5">
-                  {requestDetails.status === 'approved' || requestDetails.status === 'ordered' ? 'Reserved' : 'Pending'}
+                  {(requestDetails.status as string) === 'approved' || (requestDetails.status as string) === 'ordered' ? 'Reserved' : 'Pending'}
                 </p>
               </div>
             </div>

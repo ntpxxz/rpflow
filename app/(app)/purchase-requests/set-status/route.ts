@@ -1,6 +1,7 @@
 // app/api/purchase-requests/set-status/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { RequestStatus } from "@prisma/client";
 
 /**
  * API สำหรับ Batch Update สถานะของ Purchase Requests
@@ -30,10 +31,10 @@ export async function PATCH(req: NextRequest) {
       where: {
         id: { in: requestIds },
         // (อัปเดตจากสถานะที่ถูกต้องเท่านั้น)
-        status: { in: ["approved", "awaiting_quotation"] }
+        status: { in: [RequestStatus.Approved as any, RequestStatus.AwaitingQuotation as any] }
       },
       data: {
-        status: newStatus
+        status: newStatus as any
       }
     });
 

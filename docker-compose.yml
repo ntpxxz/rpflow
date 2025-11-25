@@ -1,0 +1,19 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "3095:3000"
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - default
+      - db-net
+    # If you are using a local database on Windows, you might need to uncomment the following lines
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+networks:
+  db-net:
+    external: true

@@ -12,16 +12,16 @@ async function main() {
   // --- 1. Requester ---
   const requesterUser = await db.user.upsert({
     where: { email: 'requester@example.com' },
-    update: { 
+    update: {
       role: UserRole.Requester,
       password: hashedPassword // อัปเดตรหัสผ่านด้วยหากรันซ้ำ
-    }, 
+    },
     create: {
-      id: 'user_requester_001', 
+      id: 'user_requester_001',
       name: 'Test Requester',
       email: 'requester@example.com',
       password: hashedPassword, // 👈 ใส่รหัสผ่าน
-      role: UserRole.Requester, 
+      role: UserRole.Requester,
     },
   });
   console.log(`Created: ${requesterUser.email} (Pass: 123456)`);
@@ -29,16 +29,16 @@ async function main() {
   // --- 2. Approver ---
   const approverUser = await db.user.upsert({
     where: { email: 'approver@example.com' },
-    update: { 
+    update: {
       role: UserRole.Approver,
-      password: hashedPassword 
+      password: hashedPassword
     },
     create: {
       id: 'user_approver_001',
       name: 'Test Approver',
       email: 'approver@example.com',
       password: hashedPassword, // 👈 ใส่รหัสผ่าน
-      role: UserRole.Approver, 
+      role: UserRole.Approver,
     },
   });
   console.log(`Created: ${approverUser.email} (Pass: 123456)`);
@@ -46,33 +46,33 @@ async function main() {
   // --- 3. Purchaser ---
   const purchaserUser = await db.user.upsert({
     where: { email: 'purchaser@example.com' },
-    update: { 
+    update: {
       role: UserRole.Purchaser,
-      password: hashedPassword 
+      password: hashedPassword
     },
     create: {
       id: 'user_purchaser_001',
       name: 'Test Purchaser',
       email: 'purchaser@example.com',
       password: hashedPassword, // 👈 ใส่รหัสผ่าน
-      role: UserRole.Purchaser, 
+      role: UserRole.Purchaser,
     },
   });
   console.log(`Created: ${purchaserUser.email} (Pass: 123456)`);
 
   // --- 4. Admin ---
   const adminUser = await db.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: { 
+    where: { email: 'admin@it.spd' },
+    update: {
       role: UserRole.Admin,
-      password: hashedPassword 
+      password: hashedPassword
     },
     create: {
       id: 'user_admin_001',
       name: 'Test Admin',
       email: 'admin@example.com',
       password: hashedPassword, // 👈 ใส่รหัสผ่าน
-      role: UserRole.Admin, 
+      role: UserRole.Admin,
     },
   });
   console.log(`Created: ${adminUser.email} (Pass: 123456)`);

@@ -30,9 +30,9 @@ function generateRFQHtml(rfqNumber: string, items: any[], totalAmount: number): 
   // ... (ใช้ HTML Template เดิมจากคำตอบก่อนหน้าได้เลยครับ หรือจะให้ผมแปะซ้ำให้บอกได้ครับ) ...
   // เพื่อความกระชับ ผมขอละ HTML Template ไว้ (ใช้ตัวเดิมที่ส่งให้ล่าสุดได้เลย)
   const today = new Date().toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric'
+    day: 'numeric', month: 'short', year: 'numeric'
   });
-  
+
   return `
       <!DOCTYPE html>
       <html>
@@ -125,27 +125,27 @@ export async function POST(req: NextRequest) {
     const { itemIds, rfqNumber } = await req.json();
 
     const itemsData = await prisma.requestItem.findMany({
-        where: { id: { in: itemIds } },
-        include: { request: true }
+      where: { id: { in: itemIds } },
+      include: { request: true }
     });
 
     // 2. แปลงรูปภาพ
     const itemsWithImages = await Promise.all(itemsData.map(async (item) => {
-        let imgUrl = null;
-        if (item.imageUrl) {
-             if(item.imageUrl.startsWith('http') || item.imageUrl.startsWith('data:')) {
-                 imgUrl = item.imageUrl;
-             }
-             // 🔻 แก้ไขจุดที่ Error ตรงนี้ครับ 🔻
-             else if (item.imageUrl.startsWith('/') || item.imageUrl.startsWith('uploads')) {
-                 imgUrl = await convertImageToBase64(item.imageUrl); // ✅ Assign ใส่ตัวแปร imgUrl แทน ImageData
-             }
+      let imgUrl = null;
+      if (item.imageUrl) {
+        if (item.imageUrl.startsWith('http') || item.imageUrl.startsWith('data:')) {
+          imgUrl = item.imageUrl;
         }
-        return { 
-            ...item, 
-            imageUrl: imgUrl,
-            qty: item.quantity - item.quantityOrdered 
-        };
+        // 🔻 แก้ไขจุดที่ Error ตรงนี้ครับ 🔻
+        else if (item.imageUrl.startsWith('/') || item.imageUrl.startsWith('uploads')) {
+          imgUrl = await convertImageToBase64(item.imageUrl); // ✅ Assign ใส่ตัวแปร imgUrl แทน ImageData
+        }
+      }
+      return {
+        ...item,
+        imageUrl: imgUrl,
+        qty: item.quantity - item.quantityOrdered
+      };
     }));
 
     // สร้าง HTML
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 1600 });
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    
+
     await page.evaluate(() => Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => new Promise(res => { img.onload = img.onerror = res; }))));
     await new Promise(r => setTimeout(r, 500));
 
@@ -165,14 +165,14 @@ export async function POST(req: NextRequest) {
       printBackground: true,
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
     });
-    
+
     await browser.close();
 
-    return new NextResponse(pdfBuffer, {
-        headers: { 
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename="${rfqNumber}.pdf"`
-        }
+    return new NextResponse(pdfBuffer as any, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${rfqNumber}.pdf"`
+      }
     });
   } catch (error: any) {
     console.error(error);

@@ -33,18 +33,19 @@ export async function GET(req: NextRequest) {
         unitPrice: true, // เอา unitPrice ล่าสุดมาด้วย
       },
     });
-    
+
     // อาจจะต้องจัดกลุ่มผลลัพธ์เพิ่มเติมถ้า distinct ยังไม่พอ
-     const uniqueSuggestions = suggestions.reduce((acc, current) => {
-        if (!acc.some(item => item.itemName === current.itemName && item.detail === current.detail)) {
-            acc.push({
-                name: current.itemName,
-                detail: current.detail ?? undefined, // ใช้ undefined ถ้าเป็น null
-                lastPrice: Number(current.unitPrice) // แปลงเป็น Number
-            });
-        }
-        return acc;
-     }, [] as { name: string; detail?: string; lastPrice: number }[]);
+    const uniqueSuggestions = suggestions.reduce((acc, current) => {
+      const normalizedDetail = current.detail !== null ? current.detail : undefined;
+      if (!acc.some(item => item.name === current.itemName && item.detail === normalizedDetail)) {
+        acc.push({
+          name: current.itemName,
+          detail: normalizedDetail,
+          lastPrice: Number(current.unitPrice) // แปลงเป็น Number
+        });
+      }
+      return acc;
+    }, [] as { name: string; detail?: string; lastPrice: number }[]);
 
 
     return NextResponse.json(uniqueSuggestions);

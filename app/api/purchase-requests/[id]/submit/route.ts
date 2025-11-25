@@ -5,10 +5,10 @@ import { prisma } from "@/lib/prisma";
 // PATCH /api/purchase-requests/{requestId}/submit
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const requestId = params.id;
+    const { id: requestId } = await params;
     // TODO: ควรดึง actorId จาก Auth/Session
     const { actorId } = await req.json();
 

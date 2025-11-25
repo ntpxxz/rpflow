@@ -1,7 +1,7 @@
 // app/(auth)/login/page.tsx
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Loader2, Lock, Mail } from "lucide-react";
@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,10 +59,10 @@ export default function LoginPage() {
           Welcome back
         </CardTitle>
         <CardDescription>
-          Enter your credentials to access KHOBUY 
+          Enter your credentials to access KHOBUY
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -70,15 +70,15 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          
+
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="admin@example.com" 
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@example.com"
                 className="pl-9"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -90,10 +90,10 @@ export default function LoginPage() {
           <div className="space-y-2">
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
                 className="pl-9"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -107,12 +107,20 @@ export default function LoginPage() {
           </Button>
         </form>
       </CardContent>
-      
+
       <CardFooter className="justify-center border-t border-slate-100 pt-6 pb-6">
         <p className="text-xs text-slate-500">
           Don't have an account? <span className="text-orange-600 font-medium cursor-pointer hover:underline">Contact Admin</span>
         </p>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

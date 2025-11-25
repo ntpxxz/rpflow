@@ -16,31 +16,31 @@ async function convertImageToBase64(imagePath: string): Promise<string | null> {
   try {
     // ลบ leading slash ถ้ามี
     const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-    
+
     // สร้าง full path
     const filePath = path.join(process.cwd(), 'public', cleanPath);
-    
+
     console.log(`📂 Trying to read image from: ${filePath}`);
-    
+
     if (!fs.existsSync(filePath)) {
       console.error(`❌ File not found: ${filePath}`);
       return null;
     }
-    
+
     // อ่านไฟล์
     const imageBuffer = fs.readFileSync(filePath);
     const base64 = imageBuffer.toString('base64');
-    
+
     // ตรวจสอบ extension เพื่อกำหนด MIME type
     const ext = path.extname(filePath).toLowerCase();
-    const mimeType = ext === '.png' ? 'image/png' 
-                   : ext === '.gif' ? 'image/gif'
-                   : ext === '.webp' ? 'image/webp'
-                   : 'image/jpeg';
-    
+    const mimeType = ext === '.png' ? 'image/png'
+      : ext === '.gif' ? 'image/gif'
+        : ext === '.webp' ? 'image/webp'
+          : 'image/jpeg';
+
     console.log(`✅ Image converted successfully (${mimeType})`);
     return `data:${mimeType};base64,${base64}`;
-    
+
   } catch (error) {
     console.error(`❌ Error converting image:`, error);
     return null;
@@ -111,8 +111,8 @@ function generatePOHtml(po: any): string {
           </thead>
           <tbody>
             ${po.items
-              .map((item: { itemName: any; imageUrl: any; quantity: number; unitPrice: any; }, index: number) => {
-                return `
+      .map((item: { itemName: any; imageUrl: any; quantity: number; unitPrice: any; }, index: number) => {
+        return `
               <tr>
                 <td style="text-align:center; color:#666;">${index + 1}</td>
                 <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : "-"}</td>
@@ -122,12 +122,12 @@ function generatePOHtml(po: any): string {
                 <td class="text-right">${item.quantity}</td>
                 <td class="text-right">฿${Number(item.unitPrice).toFixed(2)}</td>
                 <td class="text-right font-medium">฿${(
-                  item.quantity * Number(item.unitPrice)
-                ).toFixed(2)}</td>
+            item.quantity * Number(item.unitPrice)
+          ).toFixed(2)}</td>
               </tr>
             `;
-              })
-              .join("")}
+      })
+      .join("")}
               <tr>
                 <td colspan="4" style="text-align:right; font-weight:bold;"></td>
                 <td colspan="1" style="text-align:left; font-weight:bold;">Total:</td>
@@ -155,7 +155,7 @@ export async function POST(
 
   try {
     console.log(`\n📦 Processing PO: ${poNumber}`);
-    
+
     // 1. ดึงข้อมูล PO
     const poDetails = await prisma.purchaseOrder.findUnique({
       where: { poNumber: poNumber },
@@ -168,11 +168,11 @@ export async function POST(
 
     // 2. แปลงรูปภาพเป็น base64
     console.log(`\n🖼️  Converting ${poDetails.items.length} images...`);
-    
+
     const itemsWithImages = await Promise.all(
       poDetails.items.map(async (item) => {
         let imageDataUrl = null;
-        
+
         if (item.imageUrl) {
           // ถ้าเป็น Buffer
           if (Buffer.isBuffer(item.imageUrl)) {
@@ -197,7 +197,7 @@ export async function POST(
             }
           }
         }
-        
+
         return { ...item, imageUrl: imageDataUrl };
       })
     );
@@ -213,16 +213,16 @@ export async function POST(
 
     // 4. สร้าง PDF ด้วย Puppeteer
     console.log(`\n🎨 Generating PDF...`);
-    
+
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-    
+
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 1600 });
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    
+
     // รอให้รูปภาพโหลดเสร็จ
     await page.evaluate(() => {
       return Promise.all(
@@ -236,9 +236,9 @@ export async function POST(
           )
       );
     });
-    
+
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -249,13 +249,13 @@ export async function POST(
         left: '15mm',
       },
     });
-    
+
     await browser.close();
     console.log(`✅ PDF generated successfully`);
 
     console.log(`\n✅ Sending PDF buffer to client...`);
-    
-    return new NextResponse(pdfBuffer, {
+
+    return new NextResponse(pdfBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

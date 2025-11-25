@@ -69,9 +69,9 @@ function generatePOHtml(po: any): string {
   const totalAmount = po.items.reduce(
     (sum: number, item: any) => sum + item.quantity * Number(item.unitPrice),
     0
- 
+
   );
-  const poNumber = po.poNumber;  
+  const poNumber = po.poNumber;
 
 
   return `
@@ -130,8 +130,8 @@ function generatePOHtml(po: any): string {
           </thead>
           <tbody>
             ${po.items
-              .map((item: { itemName: any; imageUrl: any; quantity: number; unitPrice: any; }, index: number) => {
-                return `
+      .map((item: { itemName: any; imageUrl: any; quantity: number; unitPrice: any; }, index: number) => {
+        return `
               <tr>
                 <td style="text-align:center; color:#666;">${index + 1}</td>
                 <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : "-"}</td>
@@ -141,12 +141,12 @@ function generatePOHtml(po: any): string {
                 <td class="text-right">${item.quantity}</td>
                 <td class="text-right">฿${Number(item.unitPrice).toFixed(2)}</td>
                 <td class="text-right font-medium">฿${(
-                  item.quantity * Number(item.unitPrice)
-                ).toFixed(2)}</td>
+            item.quantity * Number(item.unitPrice)
+          ).toFixed(2)}</td>
               </tr>
             `;
-              })
-              .join("")}
+      })
+      .join("")}
               <tr>
                 <td colspan="4" style="background-color:rgb(255, 255, 255);text-align:right; ">Total:</td>
                 <td colspan="2" style="text-align:right; font-weight:bold; padding-top:15px;">${totalAmount.toFixed(2)}</td>
@@ -325,7 +325,7 @@ export async function POST(
       attachments: [
         {
           filename: `${poNumber}.pdf`,
-          content: pdfBuffer,
+          content: Buffer.from(pdfBuffer),
           contentType: "application/pdf",
         },
       ],
