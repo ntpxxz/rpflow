@@ -19,10 +19,21 @@ export async function GET(
         poNumber: poNumber,
       },
       include: {
+        receipts: {
+          include: {
+            receivedBy: true,
+            items: {
+              include: {
+                poItem: true
+              }
+            }
+          },
+          orderBy: { receivedAt: 'desc' }
+        },
         items: {
           orderBy: { itemName: 'asc' },
-          // 🟢 เพิ่มการดึงข้อมูล Request และความสัมพันธ์ที่เกี่ยวข้อง
           include: {
+            receiptItems: true, // Include receipt items to calculate total received
             requestItem: {
               include: {
                 request: {
@@ -53,17 +64,27 @@ export async function GET(
       return NextResponse.json({ message: "Purchase Order not found" }, { status: 404 });
     }
 
-    // คำนวณยอดรวม (เหมือนเดิม)
-    const totalAmount = purchaseOrder.items.reduce((sum, item) => {
-      return sum + (item.quantity * Number(item.unitPrice));
+    // Calculate totals and received quantities
+    const itemsWithReceived = purchaseOrder.items.map(item => {
+      const quantityReceived = item.receiptItems.reduce((sum, r) => sum + r.quantityReceived, 0);
+      return {
+        ...item,
+        quantityReceived,
+        unitPrice: Number(item.unitPrice)
+      };
+    });
+
+    const totalAmount = itemsWithReceived.reduce((sum, item) => {
+      return sum + (item.quantity * item.unitPrice);
     }, 0);
 
-    const poWithTotal = {
+    const poWithDetails = {
       ...purchaseOrder,
+      items: itemsWithReceived,
       totalAmount: totalAmount
     };
 
-    return NextResponse.json(poWithTotal);
+    return NextResponse.json(poWithDetails);
 
   } catch (error) {
     console.error("[PO_DETAIL_GET]", error);
