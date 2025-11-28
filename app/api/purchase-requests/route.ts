@@ -139,9 +139,18 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const body = await req.json();
-    const { items, requestType, dueDate } = body;
+    // Parse FormData instead of JSON
+    const formData = await req.formData();
 
+    const itemsJson = formData.get("items") as string;
+    const requestType = formData.get("requestType") as string;
+    const dueDateStr = formData.get("dueDate") as string | null;
+
+    if (!itemsJson || !requestType) {
+      return new NextResponse("Missing required fields", { status: 400 });
+    }
+
+    const items = JSON.parse(itemsJson);
     const parsedItems = itemsArraySchema.parse(items);
     const parsedType = requestTypeEnum.parse(requestType);
 
@@ -156,6 +165,46 @@ export async function POST(req: Request) {
       where: { role: { in: ["Approver", "Admin"] } },
     });
 
+    // Process image uploads
+    const itemsWithImages: Array<ParsedItem & { imageUrl?: string }> = [];
+
+    for (let i = 0; i < parsedItems.length; i++) {
+      const imageFile = formData.get(`image_${i}`) as File | null;
+      let imageUrl: string | undefined = undefined;
+
+      if (imageFile && imageFile.size > 0) {
+        try {
+          // Create uploads directory if it doesn't exist
+          const uploadsDir = join(process.cwd(), "public", "uploads");
+          const fs = await import("fs");
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+
+          // Generate unique filename
+          const timestamp = Date.now();
+          const fileExt = imageFile.name.split(".").pop();
+          const fileName = `${timestamp}-${i}.${fileExt}`;
+          const filePath = join(uploadsDir, fileName);
+
+          // Save file
+          const bytes = await imageFile.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+          await writeFile(filePath, buffer);
+
+          imageUrl = `/uploads/${fileName}`;
+        } catch (uploadError) {
+          console.error(`Failed to upload image for item ${i}:`, uploadError);
+          // Continue without image
+        }
+      }
+
+      itemsWithImages.push({
+        ...parsedItems[i],
+        imageUrl,
+      });
+    }
+
     const purchaseRequest = await db.$transaction(async (tx) => {
       const pr = await tx.purchaseRequest.create({
         data: {
@@ -165,13 +214,14 @@ export async function POST(req: Request) {
           type: parsedType,
           status: RequestStatus.Pending,
           totalAmount,
-          dueDate: dueDate ? new Date(dueDate) : undefined,
+          dueDate: dueDateStr ? new Date(dueDateStr) : undefined,
           items: {
-            create: parsedItems.map((item) => ({
+            create: itemsWithImages.map((item) => ({
               itemName: item.itemName,
               detail: item.detail,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
+              imageUrl: item.imageUrl,
             })),
           },
           approvalSteps: approver

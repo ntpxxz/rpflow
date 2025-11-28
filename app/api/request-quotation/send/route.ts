@@ -39,7 +39,7 @@ async function convertImageToBase64(imagePath: string): Promise<string | null> {
 }
 
 // 2. ฟังก์ชันดึงชื่อจากอีเมล (เหมือน PO)
-function getNameFromEmail(email: string): string | null {
+{/*function getNameFromEmail(email: string): string | null {
   const match = email.match(/^([^@]+)/);
   if (match) {
     const namePart = match[1];
@@ -47,7 +47,8 @@ function getNameFromEmail(email: string): string | null {
     return name.charAt(0).toUpperCase() + name.slice(1).toUpperCase();
   }
   return null;
-}
+}*/}
+const recipientEmail = "nattapon.m@minebea.co.th";
 
 // 3. HTML Template สำหรับ PDF (ใช้ Layout เดียวกับ Preview เพื่อความสวยงาม)
 function generateRFQHtml(rfqNumber: string, items: any[]): string {
@@ -113,8 +114,8 @@ function generateRFQHtml(rfqNumber: string, items: any[]): string {
           </thead>
           <tbody>
             ${items
-              .map(
-                (item, index) => `
+      .map(
+        (item, index) => `
               <tr>
                 <td style="text-align:center; color:#666;">${index + 1}</td>
                 <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : "-"}</td>
@@ -127,8 +128,8 @@ function generateRFQHtml(rfqNumber: string, items: any[]): string {
                 <td style="background-color: #fafafa;"></td> 
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
              <tr>
                 <td colspan="4" style="text-align:right; font-weight:bold; padding-top:15px;">Total (Excl. VAT):</td>
                 <td colspan="2" style="background-color: #fafafa;"></td>
@@ -226,7 +227,7 @@ export async function POST(req: NextRequest) {
     await browser.close();
 
     // 4. สร้างเนื้อหาอีเมล (เหมือน PO)
-    const extractedName = getNameFromEmail(recipientEmail);
+    const extractedName = recipientEmail;
     const greetingTH = extractedName
       ? `เรียน คุณ ${extractedName},`
       : "เรียน ผู้จำหน่าย,";
