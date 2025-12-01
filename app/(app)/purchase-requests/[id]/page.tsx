@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   PurchaseRequest,
   User,
@@ -61,6 +62,7 @@ export default function PurchaseRequestDetailPage() {
   const router = useRouter();
   const requestId = params.id as string;
 
+  const { data: session } = useSession();
   const [requestDetails, setRequestDetails] = useState<PurchaseRequestWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,6 +75,15 @@ export default function PurchaseRequestDetailPage() {
       (step) => step.status?.toLowerCase() === "pending"
     );
   }, [requestDetails]);
+
+  // Check if current user is authorized to approve
+  const canApprove = useMemo(() => {
+    if (!session?.user || !pendingStep) return false;
+    const userId = (session.user as any).id;
+    const userRole = (session.user as any).role;
+    // User can approve if they are the assigned approver OR an Admin
+    return pendingStep.approverId === userId || userRole === "Admin";
+  }, [session, pendingStep]);
 
   useEffect(() => {
     if (requestId) {
@@ -106,7 +117,6 @@ export default function PurchaseRequestDetailPage() {
 
   const handleApprovalAction = async (newStatus: "Approved" | "Rejected") => {
     if (!pendingStep) return;
-    const actorId = process.env.NEXT_PUBLIC_TEST_APPROVER_ID || "user_approver_001";
 
     setIsSubmitting(true);
     try {
@@ -117,7 +127,6 @@ export default function PurchaseRequestDetailPage() {
           approvalStepId: pendingStep.id,
           newStatus: newStatus,
           comment: comment,
-          actorId: actorId,
         }),
       });
 
@@ -136,7 +145,7 @@ export default function PurchaseRequestDetailPage() {
     let icon = null;
 
     switch (status.toLowerCase()) {
-      case "Approved":
+      case "approved":
         styles = "bg-emerald-100 text-emerald-700 border-emerald-200";
         icon = <Check className="w-3 h-3 mr-1" />;
         break;
@@ -153,7 +162,7 @@ export default function PurchaseRequestDetailPage() {
         styles = "bg-purple-100 text-purple-700 border-purple-200";
         icon = <Package className="w-3 h-3 mr-1" />;
         break;
-      case "Pending":
+      case "pending":
         styles = "bg-orange-100 text-orange-700 border-orange-200";
         icon = <Clock className="w-3 h-3 mr-1" />;
         break;
@@ -390,7 +399,7 @@ export default function PurchaseRequestDetailPage() {
       </Card>
 
       {/* Approval Action Section (Inline) */}
-      {pendingStep && (
+      {pendingStep && canApprove && (
         <Card className="border-orange-200 bg-orange-50/30 shadow-sm mb-6 ring-1 ring-orange-100">
           <CardHeader className="pb-3 border-b border-orange-100">
             <CardTitle className="text-base flex items-center gap-2 text-orange-700">

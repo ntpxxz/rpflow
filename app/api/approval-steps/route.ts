@@ -1,5 +1,7 @@
 // app/api/approval-steps/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, RequestStatus, ApprovalStatus } from "@prisma/client";
 import nodemailer from "nodemailer";
@@ -90,9 +92,15 @@ export async function GET(req: NextRequest) {
 // PATCH: Update approval step status
 export async function PATCH(req: NextRequest) {
   try {
-    const { approvalStepId, newStatus, comment, actorId } = await req.json();
+    // 1. Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!approvalStepId || !newStatus || !actorId) {
+    const { approvalStepId, newStatus, comment } = await req.json();
+
+    if (!approvalStepId || !newStatus) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
@@ -100,6 +108,28 @@ export async function PATCH(req: NextRequest) {
     if (newStatusLower !== "approved" && newStatusLower !== "rejected") {
       return NextResponse.json({ message: "Invalid status" }, { status: 400 });
     }
+
+    // 2. Fetch the approval step to check permissions
+    const approvalStep = await prisma.approvalStep.findUnique({
+      where: { id: approvalStepId },
+      include: { approver: true }
+    });
+
+    if (!approvalStep) {
+      return NextResponse.json({ message: "Approval step not found" }, { status: 404 });
+    }
+
+    const userId = (session.user as any).id;
+    const userRole = (session.user as any).role;
+
+    // 3. Authorization check: user must be the assigned approver OR an Admin
+    if (approvalStep.approverId !== userId && userRole !== "Admin") {
+      return NextResponse.json({
+        message: "Forbidden: You are not authorized to approve this request"
+      }, { status: 403 });
+    }
+
+    const actorId = userId;
 
     // Normalize status to Title Case for Prisma Enums
     const prismaStatus = newStatusLower === "approved" ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
@@ -121,7 +151,7 @@ export async function PATCH(req: NextRequest) {
           requestId: updatedStep.requestId,
           actorId: actorId,
           action: prismaStatus.toUpperCase(),
-          details: `Step "${updatedStep.stepName}" by ${actorId}. Comment: ${comment || ''}`,
+          details: `Step "${updatedStep.stepName}" by ${session.user?.name || actorId}. Comment: ${comment || ''}`,
         },
       });
 
@@ -196,7 +226,6 @@ export async function PATCH(req: NextRequest) {
     });
 
     // Send Email Alert
-    // Cast updatedRequest to any to access user safely, or check if user exists
     const requestWithUser = updatedRequest as any;
     if (requestWithUser && (requestWithUser.status === RequestStatus.Approved || requestWithUser.status === RequestStatus.Rejected)) {
       try {
