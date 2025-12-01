@@ -98,10 +98,18 @@ function generateApprovalEmailHtml(
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    const whereClause: any = {};
+    const whereClause: any = {
+      userId: (session.user as any).id, // Filter by current user
+    };
     if (status) {
       // Map string to Enum
       const statusKey = Object.keys(RequestStatus).find(

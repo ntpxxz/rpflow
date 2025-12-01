@@ -71,8 +71,6 @@ export default function MyRequestsPage() {
     fetch("/api/purchase-requests")
       .then((res) => res.json())
       .then((data: RequestWithDetails[]) => {
-        // Optional: Filter by current user if needed
-        // const myRequests = data.filter(r => r.userId === session?.user?.id);
         setRequests(data);
       })
       .catch((err) => console.error("Error fetching requests:", err))
