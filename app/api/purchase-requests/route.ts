@@ -59,7 +59,7 @@ function generateApprovalEmailHtml(
       typeStyles =
         "background-color: #F3F4F6; border: 1px solid #E5E7EB; color: #374151; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
   }
-  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/purchase-requests/${newRequest.id}`;
+  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3095"}/purchase-requests/${newRequest.id}`;
   const itemHtml = items
     .map(
       (item) => `
@@ -167,10 +167,49 @@ export async function POST(req: Request) {
       0
     );
 
+    // --- Budget Check Start ---
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+    // Defensive check for Prisma Client update
+    if (db.monthlyBudget) {
+      const budget = await db.monthlyBudget.findUnique({ where: { month: currentMonth } });
+
+      if (budget) {
+        const startDate = new Date(`${currentMonth}-01`);
+        const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+
+        const requests = await db.purchaseRequest.findMany({
+          where: {
+            createdAt: { gte: startDate, lt: endDate },
+            status: { notIn: ["Cancelled", "Rejected"] },
+          },
+          select: { totalAmount: true }
+        });
+
+        const currentSpent = requests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
+
+        if (currentSpent + totalAmount > Number(budget.amount)) {
+          return NextResponse.json({
+            message: `Monthly Budget Exceeded! Limit: ${Number(budget.amount).toLocaleString()}, Used: ${currentSpent.toLocaleString()}, This Request: ${totalAmount.toLocaleString()}`
+          }, { status: 400 });
+        }
+      }
+    } else {
+      console.warn("Skipping budget check: db.monthlyBudget is undefined. Please run 'npx prisma generate' and restart server.");
+    }
+    // --- Budget Check End ---
+
     const newId = await generateNextRequestId();
 
+    // ดึงข้อมูล approver พร้อมระบุ fields ที่ต้องการรวมถึง approverEmail
     const approver = await db.user.findFirst({
       where: { role: { in: ["Approver", "Admin"] } },
+      select: {
+        id: true,
+        email: true,
+        approverEmail: true,
+        name: true,
+      },
     });
 
     // Process image uploads
@@ -247,7 +286,9 @@ export async function POST(req: Request) {
       return pr;
     });
 
-    if (approver && approver.email) {
+    // Send email notification to approver
+    // ใช้ approverEmail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ login email
+    if (approver && (approver.approverEmail || approver.email)) {
       try {
         const { subject, html } = generateApprovalEmailHtml(
           {
@@ -263,14 +304,18 @@ export async function POST(req: Request) {
           })),
           purchaseRequest.type
         );
+        // ใช้ approverEmail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ email ปกติ
+        const recipientEmail = approver.approverEmail || approver.email;
+        console.log(`📧 [APPROVER EMAIL] Sending to: ${recipientEmail} (approverEmail: ${approver.approverEmail}, loginEmail: ${approver.email})`);
         await transporter.sendMail({
           from: GMAIL_USER,
-          to: approver.email,
+          to: recipientEmail,
           subject,
           html,
         });
+        console.log("✅ Approval request email sent successfully!");
       } catch (emailError) {
-        console.error("Failed to send email:", emailError);
+        console.error("❌ Failed to send email:", emailError);
       }
     }
 

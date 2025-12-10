@@ -82,7 +82,7 @@ export default function PurchaseRequestDetailPage() {
     const userId = (session.user as any).id;
     const userRole = (session.user as any).role;
     // User can approve if they are the assigned approver OR an Admin
-    return pendingStep.approverId === userId || userRole === "Admin";
+    return pendingStep.approverId === userId || userRole === "Admin" || userRole === "Approver";
   }, [session, pendingStep]);
 
   useEffect(() => {
@@ -180,8 +180,12 @@ export default function PurchaseRequestDetailPage() {
     const history = requestDetails.history;
 
     const steps = [
-      { key: "SUBMITTED", label: "Submitted", icon: FileText, date: history.find(h => h.action.includes("SUBMITTED"))?.timestamp },
-      { key: "APPROVED", label: "Approved", icon: Check, date: history.find(h => h.action.includes("APPROVED"))?.timestamp },
+      { 
+        key: "SUBMITTED", 
+        label: "Submitted", 
+        icon: FileText, 
+        date: requestDetails.createdAt // 👈 ใช้วันที่สร้างเอกสารแทน
+      },      { key: "APPROVED", label: "Approved", icon: Check, date: history.find(h => h.action.includes("APPROVED"))?.timestamp },
       { key: "PO_CREATED", label: "Ordered", icon: ShoppingCart, date: history.find(h => h.action === "PO_CREATED")?.timestamp },
       { key: "RECEIVED", label: "Received", icon: Package, date: (requestDetails.status as string) === "received" ? requestDetails.updatedAt : null },
     ];

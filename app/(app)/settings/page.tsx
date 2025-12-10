@@ -38,6 +38,7 @@ export default function Settings() {
   // Form States
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [userMail, setUserMail] = useState("");
   const [role, setRole] = useState<string>("Requester");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -68,7 +69,12 @@ export default function Settings() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role }),
+        body: JSON.stringify({
+          name,
+          email,
+          role,
+          userMail: userMail || undefined
+        }),
       });
 
       if (!res.ok) throw new Error("Failed to create user");
@@ -79,6 +85,7 @@ export default function Settings() {
       // Reset form
       setName("");
       setEmail("");
+      setUserMail("");
       setRole("Requester");
     } catch (error) {
       console.error(error);
@@ -139,7 +146,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">Login Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
@@ -178,6 +185,26 @@ export default function Settings() {
                   </p>
                 </div>
 
+                {/* User Notification Email - Available for all roles */}
+                <div className="space-y-2">
+                  <Label htmlFor="userMail">Notification Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-orange-500" />
+                    <Input
+                      id="userMail"
+                      type="email"
+                      placeholder="notify@company.com"
+                      className="pl-9 border-orange-200 focus:border-orange-400"
+                      value={userMail}
+                      onChange={(e) => setUserMail(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Email for receiving notifications. If not set, login email will be used.
+                  </p>
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full bg-orange-600 hover:bg-orange-700 text-white shadow-sm mt-2"
@@ -210,21 +237,22 @@ export default function Settings() {
                 <Table>
                   <TableHeader className="bg-slate-50/50">
                     <TableRow className="hover:bg-transparent border-b border-slate-100">
-                      <TableHead className="h-11 pl-6 text-xs font-bold text-slate-500 uppercase tracking-wide w-[250px]">User</TableHead>
-                      <TableHead className="h-11 text-xs font-bold text-slate-500 uppercase tracking-wide">Email</TableHead>
+                      <TableHead className="h-11 pl-6 text-xs font-bold text-slate-500 uppercase tracking-wide w-[180px]">User</TableHead>
+                      <TableHead className="h-11 text-xs font-bold text-slate-500 uppercase tracking-wide">Login Email</TableHead>
+                      <TableHead className="h-11 text-xs font-bold text-slate-500 uppercase tracking-wide">Notify Email</TableHead>
                       <TableHead className="h-11 text-xs font-bold text-slate-500 uppercase tracking-wide text-right pr-6">Role</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-32 text-center">
+                        <TableCell colSpan={4} className="h-32 text-center">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                         </TableCell>
                       </TableRow>
                     ) : users.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-32 text-center text-muted-foreground">
+                        <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
                           No users found.
                         </TableCell>
                       </TableRow>
@@ -241,6 +269,13 @@ export default function Settings() {
                           </TableCell>
                           <TableCell className="py-3 text-sm text-muted-foreground font-normal">
                             {u.email}
+                          </TableCell>
+                          <TableCell className="py-3 text-sm text-muted-foreground font-normal">
+                            {u.userMail ? (
+                              <span className="text-orange-600 font-medium">{u.userMail}</span>
+                            ) : (
+                              <span className="text-slate-400 italic">-</span>
+                            )}
                           </TableCell>
                           <TableCell className="py-3 pr-6 text-right">
                             <Badge variant={getRoleBadgeVariant(u.role)} className="capitalize">

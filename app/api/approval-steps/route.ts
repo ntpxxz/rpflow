@@ -30,7 +30,7 @@ function generateStatusEmailHtml(
   const subject = `[PR Status Update] Your request ${request.id} has been ${status.toLowerCase()}`;
 
   // Set Link
-  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/purchase-requests/${request.id}`;
+  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3095"}/purchase-requests/${request.id}`;
 
   // Set styles based on status
   let statusBoxStyle = isApproved
@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest) {
     const userRole = (session.user as any).role;
 
     // 3. Authorization check: user must be the assigned approver OR an Admin
-    if (approvalStep.approverId !== userId && userRole !== "Admin") {
+    if (approvalStep.approverId !== userId && userRole !== "Admin" && userRole !== "Approver") {
       return NextResponse.json({
         message: "Forbidden: You are not authorized to approve this request"
       }, { status: 403 });
@@ -162,7 +162,7 @@ export async function PATCH(req: NextRequest) {
         finalRequest = await tx.purchaseRequest.update({
           where: { id: updatedStep.requestId },
           data: { status: RequestStatus.Rejected },
-          include: { user: { select: { email: true, name: true } } }
+          include: { user: { select: { email: true, userMail: true, name: true } } } // Added userMail
         });
       } else if (prismaStatus === ApprovalStatus.Approved) {
         const pendingSteps = await tx.approvalStep.count({
@@ -185,7 +185,7 @@ export async function PATCH(req: NextRequest) {
             finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
               data: { status: RequestStatus.Approved },
-              include: { user: { select: { email: true, name: true } } }
+              include: { user: { select: { email: true, userMail: true, name: true } } } // Added userMail
             });
 
             await tx.requestHistory.create({
@@ -200,7 +200,7 @@ export async function PATCH(req: NextRequest) {
             finalRequest = await tx.purchaseRequest.update({
               where: { id: updatedStep.requestId },
               data: { status: RequestStatus.Rejected },
-              include: { user: { select: { email: true, name: true } } }
+              include: { user: { select: { email: true, userMail: true, name: true } } } // Added userMail
             });
 
             await tx.requestHistory.create({
@@ -218,7 +218,7 @@ export async function PATCH(req: NextRequest) {
       if (!finalRequest) {
         finalRequest = await tx.purchaseRequest.findUnique({
           where: { id: updatedStep.requestId },
-          include: { user: { select: { email: true, name: true } } }
+          include: { user: { select: { email: true, userMail: true, name: true } } } // Added userMail
         });
       }
 
@@ -229,7 +229,9 @@ export async function PATCH(req: NextRequest) {
     const requestWithUser = updatedRequest as any;
     if (requestWithUser && (requestWithUser.status === RequestStatus.Approved || requestWithUser.status === RequestStatus.Rejected)) {
       try {
-        const requesterEmail = requestWithUser.user?.email;
+        // Use userMail if available, otherwise fallback to login email
+        const requesterEmail = requestWithUser.user?.userMail || requestWithUser.user?.email;
+        const approverEmail = session.user?.email; // Email of the person who performed the action
 
         if (requesterEmail) {
           const { subject, html } = generateStatusEmailHtml(
@@ -238,14 +240,22 @@ export async function PATCH(req: NextRequest) {
             comment
           );
 
-          console.log(`\n📧 Sending status update email to: ${requesterEmail}`);
+          console.log(`\n📧 Sending status update email to Requester: ${requesterEmail}`);
+          console.log(`   - userMail: ${requestWithUser.user?.userMail || 'NOT SET'}`);
+          console.log(`   - loginEmail: ${requestWithUser.user?.email}`);
+
+          if (approverEmail) {
+            console.log(`   - Reply-To: ${approverEmail}`);
+          }
+
           await transporter.sendMail({
             from: `Purchase Request System <${GMAIL_USER}>`,
             to: requesterEmail,
+            replyTo: approverEmail || undefined, // Allow requester to reply to approver
             subject: subject,
             html: html
           });
-          console.log("✅ Status update email sent!");
+          console.log("✅ Status update email sent successfully!");
         } else {
           console.warn(`[Email Warn] No email found for requester on PR: ${requestWithUser.id}`);
         }

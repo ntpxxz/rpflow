@@ -36,6 +36,7 @@ model User {
   approvalSteps    ApprovalStep[]    
   historyEntries   RequestHistory[]  
   goodsReceipts    GoodsReceipt[]   
+  userMail         String?          @map("user_mail")
   @@map("users")
 }
 
@@ -209,4 +210,15 @@ model GoodsReceiptItem {
   poItemId         String            @map("po_item_id") 
 
   @@map("goods_receipt_items")
+}
+
+model MonthlyBudget {
+  id        String   @id @default(cuid())
+  month     String   // Format: "YYYY-MM"
+  amount    Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([month])
+  @@map("monthly_budgets")
 }

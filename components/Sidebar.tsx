@@ -16,7 +16,9 @@ import {
   Settings,
   Box,
   HandCoins,
+  DollarSign, // Added DollarSign import
 } from "lucide-react";
+import BudgetWidget from "./BudgetWidget"; // Added BudgetWidget import
 
 interface Props {
   open: boolean;
@@ -49,6 +51,7 @@ export default function Sidebar({ open, onClose }: Props) {
     { name: "Create Request", href: "/purchase-requests/new", icon: FilePlus },
     // เปลี่ยนชื่อให้สื่อถึงการติดตามสถานะ
     { name: "Track Requests", href: "/purchase-requests", icon: FileText },
+    { name: "Purchase Orders (PO)", href: "/purchase-orders", icon: ClipboardList },
   ];
 
   const approverMenu: MenuItem[] = [
@@ -59,8 +62,6 @@ export default function Sidebar({ open, onClose }: Props) {
   const procurementMenu: MenuItem[] = [
     // ใช้คำว่า Process เพื่อสื่อถึงงานที่ต้องทำ (Queue ฟังดู Passive ไป)
     { name: "Process Requisitions", href: "/procurement", icon: ShoppingCart },
-    // เพิ่ม (PO) เพื่อความชัดเจน
-    { name: "Purchase Orders (PO)", href: "/purchase-orders", icon: ClipboardList },
   ];
 
   const reportMenu: MenuItem[] = [
@@ -69,6 +70,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
   const adminMenu: MenuItem[] = [
     { name: "System Settings", href: "/settings", icon: Settings },
+    { name: "Budget Management", href: "/admin/budget", icon: DollarSign }, // Added Budget Management link
   ];
 
   let menuGroups: MenuGroup[] = [];
@@ -174,6 +176,8 @@ export default function Sidebar({ open, onClose }: Props) {
             </div>
           ))}
         </div>
+
+        <BudgetWidget />
       </aside>
     </>
   );
