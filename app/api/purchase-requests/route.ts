@@ -201,13 +201,13 @@ export async function POST(req: Request) {
 
     const newId = await generateNextRequestId();
 
-    // ดึงข้อมูล approver พร้อมระบุ fields ที่ต้องการรวมถึง approverEmail
+    // ดึงข้อมูล approver พร้อมระบุ fields ที่ต้องการรวมถึง userMail
     const approver = await db.user.findFirst({
       where: { role: { in: ["Approver", "Admin"] } },
       select: {
         id: true,
         email: true,
-        approverEmail: true,
+        userMail: true,
         name: true,
       },
     });
@@ -287,8 +287,8 @@ export async function POST(req: Request) {
     });
 
     // Send email notification to approver
-    // ใช้ approverEmail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ login email
-    if (approver && (approver.approverEmail || approver.email)) {
+    // ใช้ userMail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ login email
+    if (approver && (approver.userMail || approver.email)) {
       try {
         const { subject, html } = generateApprovalEmailHtml(
           {
@@ -304,9 +304,9 @@ export async function POST(req: Request) {
           })),
           purchaseRequest.type
         );
-        // ใช้ approverEmail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ email ปกติ
-        const recipientEmail = approver.approverEmail || approver.email;
-        console.log(`📧 [APPROVER EMAIL] Sending to: ${recipientEmail} (approverEmail: ${approver.approverEmail}, loginEmail: ${approver.email})`);
+        // ใช้ userMail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ email ปกติ
+        const recipientEmail = approver.userMail || approver.email;
+        console.log(`📧 [APPROVER EMAIL] Sending to: ${recipientEmail} (userMail: ${approver.userMail}, loginEmail: ${approver.email})`);
         await transporter.sendMail({
           from: GMAIL_USER,
           to: recipientEmail,
