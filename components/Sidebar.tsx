@@ -51,7 +51,7 @@ export default function Sidebar({ open, onClose }: Props) {
     { name: "Create Request", href: "/purchase-requests/new", icon: FilePlus },
     // เปลี่ยนชื่อให้สื่อถึงการติดตามสถานะ
     { name: "Track Requests", href: "/purchase-requests", icon: FileText },
-    { name: "Purchase Orders (PO)", href: "/purchase-orders", icon: ClipboardList },
+    //{ name: "Purchase Orders (PO)", href: "/purchase-orders", icon: ClipboardList },
   ];
 
   const approverMenu: MenuItem[] = [

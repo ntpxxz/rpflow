@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   PurchaseRequest,
   User,
@@ -12,6 +13,7 @@ import {
 import { format } from "date-fns";
 import {
   Loader2,
+  Trash2,
   MoreHorizontal,
   FileText,
   Clock,
@@ -42,45 +44,47 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
-  ResponsiveContainer, 
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
   Cell,
-  LineChart, 
-  Line, 
-  PieChart, 
+  LineChart,
+  Line,
+  PieChart,
   Pie,
 } from 'recharts';
-import { cn } from "@/lib/utils"; 
+import { cn } from "@/lib/utils";
 
 type RequestWithDetails = PurchaseRequest & {
   user: User;
   items: RequestItem[];
   approvalSteps: ApprovalStep[];
+  isOverBudget?: boolean;
 };
 
 type SortKey = "id" | "user" | "totalAmount" | "status" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 const CustomLabel = ({ viewBox, total, label }: any) => {
-    const { cx, cy } = viewBox;
-    return (
-      <g>
-        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold text-foreground">
-            {total.toLocaleString()}
-        </text>
-        <text x={cx} y={cy + 24} textAnchor="middle" dominantBaseline="middle" className="text-sm text-muted-foreground">
-          {label}
-        </text>
-      </g>
-    );
+  const { cx, cy } = viewBox;
+  return (
+    <g>
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold text-foreground">
+        {total.toLocaleString()}
+      </text>
+      <text x={cx} y={cy + 24} textAnchor="middle" dominantBaseline="middle" className="text-sm text-muted-foreground">
+        {label}
+      </text>
+    </g>
+  );
 };
 
 export default function Dashboard() {
   const [requests, setRequests] = useState<RequestWithDetails[]>([]);
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -89,7 +93,7 @@ export default function Dashboard() {
     direction: "desc",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 8; 
+  const ITEMS_PER_PAGE = 8;
 
   const [comment, setComment] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,20 +124,20 @@ export default function Dashboard() {
   // --- Updated Stats Logic ---
   const stats = useMemo(() => {
     const totalRequests = requests.length;
-    
+
     // 1. Pending Approval (รออนุมัติ)
     const pendingCount = requests.filter(r => r.status.toLowerCase() === 'pending').length;
-    
+
     // 2. Processing (Approved + Ordered) - งานที่ฝ่ายจัดซื้อกำลังทำ
     const processingCount = requests.filter(r => ['approved', 'ordered'].includes(r.status.toLowerCase())).length;
-    
+
     // 3. Completed (Received)
     const completedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
 
     // 4. Total Spend (คิดเฉพาะสถานะที่ไม่ใช่ Rejected/Cancelled)
     const validRequests = requests.filter(r => !['rejected', 'cancelled'].includes(r.status.toLowerCase()));
     const totalAmount = validRequests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
-    
+
     return {
       totalRequests,
       pendingCount,
@@ -148,38 +152,38 @@ export default function Dashboard() {
     const dataMap = monthNames.reduce((acc: Record<string, number>, month) => ({ ...acc, [month]: 0 }), {});
 
     requests.forEach(r => {
-      const monthName = format(new Date(r.createdAt), "MMM"); 
+      const monthName = format(new Date(r.createdAt), "MMM");
       dataMap[monthName] = (dataMap[monthName] || 0) + 1;
     });
-    
+
     const chartData = monthNames.map(month => ({
-        name: month,
-        Orders: dataMap[month] 
+      name: month,
+      Orders: dataMap[month]
     }));
 
     return chartData;
   }, [requests]);
 
   const statusData = useMemo(() => {
-      const pendingCount = requests.filter(r => r.status.toLowerCase() === 'pending').length;
-      const orderedCount = requests.filter(r => r.status.toLowerCase() === 'ordered').length;
-      const approvedCount = requests.filter(r => r.status.toLowerCase() === 'approved').length;
-      const receivedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
-      const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
-      const cancelledCount = requests.filter(r => r.status.toLowerCase() === 'cancelled').length;
-      
-      const totalCount = requests.length;
+    const pendingCount = requests.filter(r => r.status.toLowerCase() === 'pending').length;
+    const orderedCount = requests.filter(r => r.status.toLowerCase() === 'ordered').length;
+    const approvedCount = requests.filter(r => r.status.toLowerCase() === 'approved').length;
+    const receivedCount = requests.filter(r => r.status.toLowerCase() === 'received').length;
+    const rejectedCount = requests.filter(r => r.status.toLowerCase() === 'rejected').length;
+    const cancelledCount = requests.filter(r => r.status.toLowerCase() === 'cancelled').length;
 
-      return {
-          totalCount,
-          data: [
-              { name: 'Received', value: receivedCount, fill: '#10b981', label: `${receivedCount}` }, 
-              { name: 'Ordered', value: orderedCount, fill: '#3b82f6', label: `${orderedCount}` }, 
-              { name: 'Approved', value: approvedCount, fill: '#6366f1', label: `${approvedCount}` }, 
-              { name: 'Pending', value: pendingCount, fill: '#f97316', label: `${pendingCount}` }, 
-              { name: 'Rejected', value: rejectedCount + cancelledCount, fill: '#ef4444', label: `${rejectedCount + cancelledCount}` }, 
-          ].filter(d => d.value > 0),
-      };
+    const totalCount = requests.length;
+
+    return {
+      totalCount,
+      data: [
+        { name: 'Received', value: receivedCount, fill: '#10b981', label: `${receivedCount}` },
+        { name: 'Ordered', value: orderedCount, fill: '#3b82f6', label: `${orderedCount}` },
+        { name: 'Approved', value: approvedCount, fill: '#6366f1', label: `${approvedCount}` },
+        { name: 'Pending', value: pendingCount, fill: '#f97316', label: `${pendingCount}` },
+        { name: 'Rejected', value: rejectedCount + cancelledCount, fill: '#ef4444', label: `${rejectedCount + cancelledCount}` },
+      ].filter(d => d.value > 0),
+    };
   }, [requests]);
 
   const sortedRequests = useMemo(() => {
@@ -218,7 +222,7 @@ export default function Dashboard() {
     setComment("");
     setIsModalOpen(true);
   };
-  
+
   const handleConfirmAction = async () => {
     if (!currentAction) return;
 
@@ -227,22 +231,36 @@ export default function Dashboard() {
     setIsModalOpen(false);
 
     try {
-        const res = await fetch("/api/approval-steps", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                approvalStepId: currentAction.stepId,
-                newStatus: currentAction.action,
-                comment: comment,
-                actorId: actorId, 
-            }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        fetchRequests(); 
+      const res = await fetch("/api/approval-steps", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvalStepId: currentAction.stepId,
+          newStatus: currentAction.action,
+          comment: comment,
+          actorId: actorId,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      fetchRequests();
     } catch (err: any) {
-        console.error(err);
-        alert("Failed to update status: " + (err.message || 'Unknown error'));
-        setActionLoading(null);
+      console.error(err);
+      alert("Failed to update status: " + (err.message || 'Unknown error'));
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this request?")) return;
+
+    try {
+      const res = await fetch(`/api/purchase-requests/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete request");
     }
   };
 
@@ -256,12 +274,12 @@ export default function Dashboard() {
     <Card className={cn("border-slate-200 shadow-sm hover:shadow-md transition-shadow", className)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between space-y-0 pb-2">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className="p-2 bg-slate-50 rounded-full text-slate-500">
-                <Icon className="h-4 w-4" />
-            </div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <div className="p-2 bg-slate-50 rounded-full text-slate-500">
+            <Icon className="h-4 w-4" />
+          </div>
         </div>
-        <div className="text-2xl font-bold text-foreground">{value}</div>       
+        <div className="text-2xl font-bold text-foreground">{value}</div>
       </CardContent>
     </Card>
   );
@@ -276,27 +294,27 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-      
+
       {/* Page Header */}
       <div className="flex justify-between items-start">
-         <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1">Overview of procurement activities</p>
-         </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Overview of procurement activities</p>
+        </div>
       </div>
 
       {/* Stats Cards (Updated) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* 1. Total Requisitions */}
-        <StatsCard 
+        <StatsCard
           title="Total Requisitions"
           value={stats.totalRequests.toLocaleString()}
           icon={FileText}
         />
 
         {/* 2. Pending Approval - Important! */}
-        <StatsCard 
+        <StatsCard
           title="Pending Approval"
           value={stats.pendingCount.toLocaleString()}
           icon={Clock}
@@ -304,14 +322,14 @@ export default function Dashboard() {
         />
 
         {/* 3. Processing (Active Orders) */}
-        <StatsCard 
+        <StatsCard
           title="In Processing"
           value={stats.processingCount.toLocaleString()}
           icon={ShoppingCart}
         />
 
         {/* 4. Total Spend */}
-        <StatsCard 
+        <StatsCard
           title="Total Spend"
           value={`฿${stats.totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           icon={Coins}
@@ -320,48 +338,48 @@ export default function Dashboard() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Orders Analytics (Line Chart) */}
         <Card className="lg:col-span-2 border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
-              <CardTitle className="text-lg font-semibold">Request Trends</CardTitle>
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
+            <CardTitle className="text-lg font-semibold">Request Trends</CardTitle>
+            <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
           </CardHeader>
           <CardContent className="pt-6">
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={monthlyRequestData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
                     tick={{ fontSize: 12, fill: '#94a3b8' }}
                     dy={10}
                   />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
                     tick={{ fontSize: 12, fill: '#94a3b8' }}
                   />
-                  <RechartsTooltip 
-                     contentStyle={{ 
-                       borderRadius: '8px', 
-                       border: '1px solid #e2e8f0', 
-                       backgroundColor: 'white',
-                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                       padding: '8px 12px' 
-                     }}
-                     labelStyle={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}
-                     formatter={(value: any) => [value.toLocaleString(), 'Requests']}
+                  <RechartsTooltip
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      padding: '8px 12px'
+                    }}
+                    labelStyle={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}
+                    formatter={(value: any) => [value.toLocaleString(), 'Requests']}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="Orders" 
-                    stroke="#f97316" 
-                    strokeWidth={2.5} 
+                  <Line
+                    type="monotone"
+                    dataKey="Orders"
+                    stroke="#f97316"
+                    strokeWidth={2.5}
                     dot={false}
-                    activeDot={{ r: 5, fill: '#f97316', stroke: 'white', strokeWidth: 2 }} 
+                    activeDot={{ r: 5, fill: '#f97316', stroke: 'white', strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -371,144 +389,159 @@ export default function Dashboard() {
 
         {/* Orders by Status (Donut Chart) */}
         <Card className="lg:col-span-1 border-slate-200 shadow-sm">
-           <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
-              <CardTitle className="text-lg font-semibold">Status Breakdown</CardTitle>
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
-           </CardHeader>
-           <CardContent className="flex flex-col items-center">
-              <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            data={statusData.data}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={65} 
-                            outerRadius={90} 
-                            paddingAngle={2}
-                            startAngle={90}
-                            endAngle={450}
-                        >
-                            {statusData.data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                        </Pie>
-                        <CustomLabel total={statusData.totalCount} label="Requests" viewBox={{ cx: 235, cy: 100 }} />
-                    </PieChart>
-                </ResponsiveContainer>
-              </div>
-              
-              {/* Legend */}
-              <div className="w-full space-y-3 mt-6">
-                {statusData.data.map(entry => (
-                    <div key={entry.name} className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2">
-                            <div className="size-2.5 rounded-full" style={{ backgroundColor: entry.fill }}/>
-                            <span className="text-muted-foreground">{entry.name}</span>
-                        </div>
-                        <span className="font-semibold text-foreground">{entry.value.toLocaleString()}</span>
-                    </div>
-                ))}
-              </div>
-           </CardContent>
+          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
+            <CardTitle className="text-lg font-semibold">Status Breakdown</CardTitle>
+            <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusData.data}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    startAngle={90}
+                    endAngle={450}
+                  >
+                    {statusData.data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <CustomLabel total={statusData.totalCount} label="Requests" viewBox={{ cx: 235, cy: 100 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div className="w-full space-y-3 mt-6">
+              {statusData.data.map(entry => (
+                <div key={entry.name} className="flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2.5 rounded-full" style={{ backgroundColor: entry.fill }} />
+                    <span className="text-muted-foreground">{entry.name}</span>
+                  </div>
+                  <span className="font-semibold text-foreground">{entry.value.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Recent Orders Table */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex flex-row justify-between items-center pb-3 border-b border-slate-100">
-            <CardTitle className="text-lg font-semibold">Recent Requests</CardTitle>
-            <Button 
-              variant="ghost" 
-              className="text-sm font-medium text-primary hover:text-primary/80 hover:bg-transparent"
-              onClick={() => router.push("/purchase-requests")}
-            >
-              View all
-            </Button>
+          <CardTitle className="text-lg font-semibold">Recent Requests</CardTitle>
+          <Button
+            variant="ghost"
+            className="text-sm font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+            onClick={() => router.push("/purchase-requests")}
+          >
+            View all
+          </Button>
         </CardHeader>
         <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                  <TableHeader>
-                      <TableRow className="hover:bg-transparent border-b border-slate-200">
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pl-6">
-                          Request #
-                        </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                          Requester
-                        </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                          Date
-                        </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                          Status
-                        </TableHead>
-                        <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6 text-right">
-                          Total Amount
-                        </TableHead>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-b border-slate-200">
+                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pl-6">
+                    Request #
+                  </TableHead>
+                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    Requester
+                  </TableHead>
+                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    Date
+                  </TableHead>
+                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    Status
+                  </TableHead>
+                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6 text-right">
+                    Total Amount
+                  </TableHead>
+                  {(session?.user as any)?.role === 'Admin' && (
+                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide w-[50px]">
+                      Action
+                    </TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedRequests.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                      No recent requests found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedRequests.map((req) => {
+                    return (
+                      <TableRow
+                        key={req.id}
+                        className="cursor-pointer hover:bg-slate-50/80 border-b border-slate-100 transition-colors"
+                        onClick={() => router.push(`/purchase-requests/${req.id}`)}
+                      >
+                        <TableCell className="py-4 pl-6">
+                          <span className="text-sm font-medium text-foreground">#{req.id}</span>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <span className="text-sm text-foreground">{req.user.name}</span>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="text-sm text-muted-foreground">
+                            {format(new Date(req.createdAt), "MMM d, yyyy")}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          {req.isOverBudget && (
+                            <Badge className="bg-red-50 text-red-600 border-red-200 mr-2">Over Budget</Badge>
+                          )}
+                          {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' ? (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                              <ShoppingCart className="mr-1.5 h-3 w-3" /> Ordered
+                            </Badge>
+                          ) : req.status.toLowerCase() === 'approved' ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                              <CheckCircle2 className="mr-1.5 h-3 w-3" /> Approved
+                            </Badge>
+                          ) : req.status.toLowerCase() === 'rejected' || req.status.toLowerCase() === 'cancelled' ? (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                              <XCircle className="mr-1.5 h-3 w-3" /> Rejected
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
+                              <Clock className="mr-1.5 h-3 w-3" /> Pending
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-4 pr-6 text-right">
+                          <span className="text-sm font-medium text-foreground">
+                            ฿{Number(req.totalAmount).toLocaleString()}
+                          </span>
+                        </TableCell>
+                        {(session?.user as any)?.role === 'Admin' && (
+                          <TableCell className="py-4 text-center">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={(e) => handleDelete(e, req.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                      {paginatedRequests.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                              No recent requests found.
-                            </TableCell>
-                          </TableRow>
-                      ) : (
-                      paginatedRequests.map((req) => {
-                          return (
-                          <TableRow 
-                            key={req.id} 
-                            className="cursor-pointer hover:bg-slate-50/80 border-b border-slate-100 transition-colors" 
-                            onClick={() => router.push(`/purchase-requests/${req.id}`)}
-                          >
-                              <TableCell className="py-4 pl-6">
-                                <span className="text-sm font-medium text-foreground">#{req.id}</span>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <span className="text-sm text-foreground">{req.user.name}</span>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                <div className="text-sm text-muted-foreground">
-                                  {format(new Date(req.createdAt), "MMM d, yyyy")}
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-4">
-                                  {req.status.toLowerCase() === 'ordered' || req.status.toLowerCase() === 'received' ? (
-                                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <ShoppingCart className="mr-1.5 h-3 w-3" /> Ordered
-                                      </Badge>
-                                  ) : req.status.toLowerCase() === 'approved' ? (
-                                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <CheckCircle2 className="mr-1.5 h-3 w-3" /> Approved
-                                      </Badge>
-                                  ) : req.status.toLowerCase() === 'rejected' || req.status.toLowerCase() === 'cancelled' ? (
-                                      <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <XCircle className="mr-1.5 h-3 w-3" /> Rejected
-                                      </Badge>
-                                  ) : (
-                                      <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-0 rounded-md px-2.5 py-1 text-xs font-medium">
-                                        <Clock className="mr-1.5 h-3 w-3" /> Pending
-                                      </Badge>
-                                  )}
-                              </TableCell>
-                              <TableCell className="py-4 pr-6 text-right">
-                                  <span className="text-sm font-medium text-foreground">
-                                    ฿{Number(req.totalAmount).toLocaleString()}
-                                  </span>
-                              </TableCell>
-                          </TableRow>
-                          );
-                      })
-                      )}
-                  </TableBody>
-              </Table>
-            </div>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
-        </Card>
+      </Card>
 
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -538,9 +571,9 @@ export default function Dashboard() {
             <DialogClose asChild>
               <Button type="button" variant="outline" className="rounded-lg">Cancel</Button>
             </DialogClose>
-            <Button 
-              type="button" 
-              onClick={handleConfirmAction} 
+            <Button
+              type="button"
+              onClick={handleConfirmAction}
               disabled={actionLoading !== null || (currentAction?.action === 'Rejected' && !comment.trim())}
               variant={currentAction?.action === 'Rejected' ? 'destructive' : 'default'}
               className="rounded-lg"

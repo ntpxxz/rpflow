@@ -110,6 +110,10 @@ export async function GET(req: NextRequest) {
     const whereClause: any = {
       userId: (session.user as any).id, // Filter by current user
     };
+    const currentUser = await db.user.findUnique({ where: { id: (session.user as any).id } });
+    if (currentUser?.role === "Admin") {
+      delete whereClause.userId;
+    }
     if (status) {
       // Map string to Enum
       const statusKey = Object.keys(RequestStatus).find(
@@ -168,6 +172,7 @@ export async function POST(req: Request) {
     );
 
     // --- Budget Check Start ---
+    let isOverBudget = false;
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
     // Defensive check for Prisma Client update
@@ -189,9 +194,10 @@ export async function POST(req: Request) {
         const currentSpent = requests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
 
         if (currentSpent + totalAmount > Number(budget.amount)) {
-          return NextResponse.json({
-            message: `Monthly Budget Exceeded! Limit: ${Number(budget.amount).toLocaleString()}, Used: ${currentSpent.toLocaleString()}, This Request: ${totalAmount.toLocaleString()}`
-          }, { status: 400 });
+          isOverBudget = true;
+          // return NextResponse.json({
+          // message: ...
+          // }, { status: 400 });
         }
       }
     } else {
@@ -260,6 +266,7 @@ export async function POST(req: Request) {
           userId: (session.user as any).id,
           type: parsedType,
           status: RequestStatus.Pending,
+          isOverBudget,
           totalAmount,
           dueDate: dueDateStr ? new Date(dueDateStr) : undefined,
           items: {

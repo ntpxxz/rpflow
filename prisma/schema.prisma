@@ -59,6 +59,7 @@ enum RequestStatus {
 model PurchaseRequest {
   id        String   @id 
   status    RequestStatus @default(Pending)
+  isOverBudget Boolean       @default(false) @map("is_over_budget")
   totalAmount Decimal? @map("total_amount")
 
   requesterName String

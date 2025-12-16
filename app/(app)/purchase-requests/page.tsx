@@ -6,16 +6,17 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PurchaseRequest, User, RequestItem } from "@prisma/client";
 import { format } from "date-fns";
-import { 
-  Loader2, 
-  Plus, 
-  Search, 
-  FileText, 
-  ChevronRight, 
-  ArrowUpDown, 
-  ArrowUp, 
+import {
+  Loader2,
+  Plus,
+  Search,
+  FileText,
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
   ArrowDown,
-  ChevronLeft
+  ChevronLeft,
+  Trash2
 } from "lucide-react";
 import {
   Card,
@@ -50,11 +51,11 @@ const ITEMS_PER_PAGE = 10;
 export default function MyRequestsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  
+
   const [requests, setRequests] = useState<RequestWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // 1. Sorting & Pagination State
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({
     key: "createdAt",
@@ -85,6 +86,20 @@ export default function MyRequestsPage() {
         current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
     setCurrentPage(1); // Reset to page 1 when sorting changes
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this request?")) return;
+
+    try {
+      const res = await fetch(`/api/purchase-requests/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete request");
+    }
   };
 
   // 3. Process Data (Filter -> Sort -> Paginate)
@@ -148,7 +163,7 @@ export default function MyRequestsPage() {
     const isActive = sortConfig.key === sortKey;
     return (
       <TableHead className={className}>
-        <button 
+        <button
           onClick={() => handleSort(sortKey)}
           className="flex items-center gap-1 hover:text-slate-700 transition-colors font-semibold uppercase tracking-wider text-xs"
         >
@@ -173,7 +188,7 @@ export default function MyRequestsPage() {
 
   return (
     <div className="space-y-6 pb-10 max-w-8xl mx-auto">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -190,104 +205,113 @@ export default function MyRequestsPage() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                    placeholder="Search by ID, status..." 
-                    className="pl-9 max-w-md bg-slate-50 border-slate-200"
-                    value={searchQuery}
-                    onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPage(1); // Reset Page on search
-                    }}
-                />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by ID, status..."
+              className="pl-9 max-w-md bg-slate-50 border-slate-200"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1); // Reset Page on search
+              }}
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                  <TableHeader className="bg-slate-50/50">
-                      <TableRow className="hover:bg-transparent border-b border-slate-100">
-                          <SortableHeader label="Request ID" sortKey="id" className="pl-6 h-11" />
-                          <SortableHeader label="Date" sortKey="createdAt" className="h-11" />
-                          <SortableHeader label="Items" sortKey="itemsCount" className="h-11" />
-                          <SortableHeader label="Total Amount" sortKey="totalAmount" className="h-11" />
-                          <SortableHeader label="Status" sortKey="status" className="h-11" />
-                          <TableHead className="h-11 w-[50px]"></TableHead>
-                      </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                      {paginatedRequests.length === 0 ? (
-                          <TableRow>
-                              <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
-                                  No requests found.
-                              </TableCell>
-                          </TableRow>
-                      ) : (
-                          paginatedRequests.map((req) => (
-                              <TableRow 
-                                  key={req.id} 
-                                  className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 group"
-                                  onClick={() => router.push(`/purchase-requests/${req.id}`)}
-                              >
-                                  <TableCell className="py-4 pl-6 font-medium text-slate-700">
-                                      <div className="flex items-center gap-2">
-                                          <div className="p-1.5 rounded bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-orange-600 transition-colors">
-                                              <FileText className="h-4 w-4" />
-                                          </div>
-                                          {req.id}
-                                      </div>
-                                  </TableCell>
-                                  <TableCell className="py-4 text-slate-600 text-sm">
-                                      {format(new Date(req.createdAt), "MMM d, yyyy")}
-                                  </TableCell>
-                                  <TableCell className="py-4 text-slate-600 text-sm">
-                                      {req.items.length} items
-                                  </TableCell>
-                                  <TableCell className="py-4 font-semibold text-slate-900 text-sm">
-                                      ฿{Number(req.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                  </TableCell>
-                                  <TableCell className="py-4">
-                                        <StatusBadge status={req.status} />                                  
-                                  </TableCell>
-                                  <TableCell className="py-4 pr-6 text-right">
-                                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-                                  </TableCell>
-                              </TableRow>
-                          ))
-                      )}
-                  </TableBody>
-              </Table>
-            </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                  <SortableHeader label="Request ID" sortKey="id" className="pl-6 h-11" />
+                  <SortableHeader label="Date" sortKey="createdAt" className="h-11" />
+                  <SortableHeader label="Items" sortKey="itemsCount" className="h-11" />
+                  <SortableHeader label="Total Amount" sortKey="totalAmount" className="h-11" />
+                  <SortableHeader label="Status" sortKey="status" className="h-11" />
+                  <TableHead className="h-11 w-[50px]">
+                    {(session?.user as any)?.role === 'Admin' && "Action"}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedRequests.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
+                      No requests found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedRequests.map((req) => (
+                    <TableRow
+                      key={req.id}
+                      className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 group"
+                      onClick={() => router.push(`/purchase-requests/${req.id}`)}
+                    >
+                      <TableCell className="py-4 pl-6 font-medium text-slate-700">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-orange-600 transition-colors">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          {req.id}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 text-slate-600 text-sm">
+                        {format(new Date(req.createdAt), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell className="py-4 text-slate-600 text-sm">
+                        {req.items.length} items
+                      </TableCell>
+                      <TableCell className="py-4 font-semibold text-slate-900 text-sm">
+                        ฿{Number(req.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <StatusBadge status={req.status} />
+                      </TableCell>
+                      <TableCell className="py-4 pr-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {(session?.user as any)?.role === 'Admin' && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={(e) => handleDelete(e, req.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-            {/* Pagination Footer */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30">
-                <span className="text-xs text-slate-500 font-medium">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, processedData.length)} of {processedData.length} requests
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0 rounded-md border-slate-200"
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0 rounded-md border-slate-200"
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+          {/* Pagination Footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30">
+              <span className="text-xs text-slate-500 font-medium">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, processedData.length)} of {processedData.length} requests
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-md border-slate-200"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-md border-slate-200"
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

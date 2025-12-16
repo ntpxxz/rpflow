@@ -6,10 +6,14 @@ services:
       - "3095:3000"
     env_file:
       - .env
+    environment:
+      - NEXTAUTH_URL=http://localhost:3095
     restart: always
     networks:
       - default
       - db-net
+    volumes:
+      - ./public/uploads:/app/public/uploads
     # If you are using a local database on Windows, you might need to uncomment the following lines
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
