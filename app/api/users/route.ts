@@ -1,11 +1,21 @@
-// app/api/users/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
-// GET all users
-export async function GET() {
+// GET all users or single user by ID
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (id) {
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return NextResponse.json({ message: "User not found" }, { status: 404 });
+      }
+      return NextResponse.json(user);
+    }
+
     const users = await prisma.user.findMany();
     return NextResponse.json(users);
   } catch (error) {
@@ -19,10 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
+    const hashedPassword = data.password ? await bcrypt.hash(data.password, 10) : null;
+
     const newUser = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
+        password: hashedPassword,
         role: data.role,
         userMail: data.userMail || null,
       },
@@ -40,6 +53,11 @@ export async function PATCH(req: NextRequest) {
     const { id, ...update } = await req.json();
     if (!id) {
       return NextResponse.json({ message: "ID is required" }, { status: 400 });
+    }
+
+    // If password is being updated, hash it
+    if (update.password) {
+      update.password = await bcrypt.hash(update.password, 10);
     }
 
     const updatedUser = await prisma.user.update({

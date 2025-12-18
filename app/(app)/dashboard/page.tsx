@@ -489,7 +489,7 @@ export default function Dashboard() {
                         onClick={() => router.push(`/purchase-requests/${req.id}`)}
                       >
                         <TableCell className="py-4 pl-6">
-                          <span className="text-sm font-medium text-foreground">#{req.id}</span>
+                          <span className="text-sm font-medium text-foreground"><FileText className="h-4 w-4" />{req.id}</span>
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-sm text-foreground">{req.user.name}</span>

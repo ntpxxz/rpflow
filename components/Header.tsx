@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -83,10 +84,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
 
             <div className="space-y-0.5">
-              <button className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 rounded-md hover:bg-slate-100 transition-colors text-left">
+              <Link href="/profile" className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 rounded-md hover:bg-slate-100 transition-colors text-left">
                 <UserIcon className="w-4 h-4 text-slate-400" />
                 Profile Settings
-              </button>
+              </Link>
 
               <div className="h-[1px] bg-slate-100 my-1" />
 

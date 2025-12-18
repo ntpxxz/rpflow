@@ -344,7 +344,7 @@ export default function PurchaseRequestDetailPage() {
           <div className="text-right">
             <h2 className="text-2xl font-bold text-blue-700 uppercase tracking-wide mb-1">Purchase Request</h2>
             <div className="text-slate-500 text-xs mt-1">
-              Document No: <strong className="text-black">#{requestDetails.id}</strong>
+              Document No: <strong className="text-black">{requestDetails.id}</strong>
             </div>
             <div className="text-slate-500 text-xs">
               Date: <strong className="text-black">{format(new Date(requestDetails.createdAt), "dd MMM yyyy")}</strong>
@@ -420,7 +420,7 @@ export default function PurchaseRequestDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                Request #{requestDetails.id}
+                Request: {requestDetails.id}
               </h1>
               <StatusBadge status={requestDetails.status} />
             </div>

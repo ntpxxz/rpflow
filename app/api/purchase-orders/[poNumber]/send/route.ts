@@ -305,7 +305,7 @@ export async function POST(
     //ส่ง Email
 
     const mailOptions = {
-      from: `${GMAIL_USER}`,
+      from: `IOT Purchase Request System <${GMAIL_USER}>`,
       to: recipientEmail,
       cc: ccEmails && ccEmails.length > 0 ? ccEmails : undefined,
       subject: `[ส่งใบสั่งซื้อ] IOT ${poNumber} - IOT Section`,

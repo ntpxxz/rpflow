@@ -17,11 +17,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Helper to extract name from email
+function getNameFromEmail(email: string): string | null {
+  const match = email.match(/^([^@]+)/);
+  if (match) {
+    const namePart = match[1];
+    const name = namePart.replace(/[._]/g, " ");
+    return name.charAt(0).toUpperCase() + name.slice(1).toUpperCase();
+  }
+  return null;
+}
+
 // Create Email Template for Requester
 function generateStatusEmailHtml(
   request: { id: string },
   status: "APPROVED" | "REJECTED",
-  comment: string | null
+  comment: string | null,
+  requesterEmail: string
 ): { subject: string; html: string } {
 
   const isApproved = status === "APPROVED";
@@ -30,7 +42,7 @@ function generateStatusEmailHtml(
   const subject = `[PR Status Update] Your request ${request.id} has been ${status.toLowerCase()}`;
 
   // Set Link
-  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3095"}/purchase-requests/${request.id}`;
+  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.98.238:3095"}/purchase-requests/${request.id}`;
 
   // Set styles based on status
   let statusBoxStyle = isApproved
@@ -38,8 +50,11 @@ function generateStatusEmailHtml(
     : "background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5;";
   statusBoxStyle += " padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
 
+  const extractedName = getNameFromEmail(requesterEmail);
+  const greetingTH = extractedName ? `Dear K. ${extractedName},` : "Dear Requester,";
+
   const html = `
-    <p>Dear Requester,</p>
+    <p>${greetingTH}</p>
     <p>Your Purchase Request (PR) <strong>${request.id}</strong> has been updated.</p>
     
     <div style="${statusBoxStyle}">
@@ -237,7 +252,8 @@ export async function PATCH(req: NextRequest) {
           const { subject, html } = generateStatusEmailHtml(
             requestWithUser,
             requestWithUser.status === RequestStatus.Approved ? "APPROVED" : "REJECTED",
-            comment
+            comment,
+            requesterEmail
           );
 
           console.log(`\n📧 Sending status update email to Requester: ${requesterEmail}`);
@@ -249,7 +265,7 @@ export async function PATCH(req: NextRequest) {
           }
 
           await transporter.sendMail({
-            from: `Purchase Request System <${GMAIL_USER}>`,
+            from: `IOT Purchase Request System <${GMAIL_USER}>`,
             to: requesterEmail,
             replyTo: approverEmail || undefined, // Allow requester to reply to approver
             subject: subject,

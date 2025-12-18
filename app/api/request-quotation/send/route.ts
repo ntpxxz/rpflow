@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
     });
 
     await transporter.sendMail({
-      from: GMAIL_USER,
+      from: `IOT Purchase Request System <${GMAIL_USER}>`,
       to: recipientEmail,
       cc: ccEmail || undefined,
       subject: `[ขอใบเสนอราคา] ${rfqNumber} - IOT Section`,

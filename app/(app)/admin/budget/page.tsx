@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { Loader2, Save, DollarSign } from "lucide-react";
+import { Loader2, Save, DollarSign, RotateCcw } from "lucide-react";
 
 export default function AdminBudgetPage() {
     const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
     const [amount, setAmount] = useState<number | "">("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [resetting, setResetting] = useState(false);
     const [currentBudget, setCurrentBudget] = useState<{ budgetAmount: number; totalSpent: number; remaining: number } | null>(null);
 
     const fetchBudget = async () => {
@@ -58,6 +59,30 @@ export default function AdminBudgetPage() {
         }
     };
 
+    const handleReset = async () => {
+        if (!confirm("Are you sure you want to reset the budget for this month? This will remove the budget limit.")) {
+            return;
+        }
+        setResetting(true);
+        try {
+            const res = await fetch(`/api/budget?month=${month}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                alert("Budget reset successfully!");
+                setAmount("");
+                fetchBudget();
+            } else {
+                throw new Error("Failed to reset");
+            }
+        } catch (error) {
+            alert("Error resetting budget");
+        } finally {
+            setResetting(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-slate-900">Monthly Budget Management</h1>
@@ -87,10 +112,16 @@ export default function AdminBudgetPage() {
                         </div>
                     </div>
 
-                    <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700 text-white">
-                        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Save Budget
-                    </Button>
+                    <div className="flex gap-4">
+                        <Button onClick={handleSave} disabled={saving || resetting} className="bg-orange-600 hover:bg-orange-700 text-white flex-1">
+                            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Budget
+                        </Button>
+                        <Button onClick={handleReset} disabled={saving || resetting} variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
+                            {resetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                            Reset Budget
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 

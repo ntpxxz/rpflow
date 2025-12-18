@@ -32,7 +32,9 @@ import {
     Loader2,
     ArrowRight,
     Search,
-    ArrowUpDown
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import {
     Tabs,
@@ -72,6 +74,11 @@ export default function ProcurementPage() {
     const [selectedAwaitingPoIds, setSelectedAwaitingPoIds] = useState<string[]>([]);
     const [itemQuotations, setItemQuotations] = useState<{ [itemId: string]: string }>({});
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+
+    // Pagination State
+    const [queuePage, setQueuePage] = useState(1);
+    const [awaitingPoPage, setAwaitingPoPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
 
     useEffect(() => {
         fetchItems();
@@ -119,6 +126,43 @@ export default function ProcurementPage() {
         }, {});
     }, [awaitingPoItems]);
 
+    const getSortedGroups = (groupedItems: GroupedItems) => {
+        return Object.entries(groupedItems).sort(([, itemsA], [, itemsB]) => {
+            if (sortConfig.key === 'date') {
+                const dateA = new Date(itemsA[0].request.createdAt).getTime();
+                const dateB = new Date(itemsB[0].request.createdAt).getTime();
+                // Handle invalid dates
+                if (isNaN(dateA)) return 1;
+                if (isNaN(dateB)) return -1;
+                return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
+            }
+            if (sortConfig.key === 'itemName') {
+                const nameA = itemsA[0].itemName.toLowerCase();
+                const nameB = itemsB[0].itemName.toLowerCase();
+                if (nameA < nameB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (nameA > nameB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            }
+            return 0;
+        });
+    };
+
+    const sortedQueueGroups = useMemo(() => getSortedGroups(groupedQueueItems), [groupedQueueItems, sortConfig]);
+    const sortedAwaitingPoGroups = useMemo(() => getSortedGroups(groupedAwaitingPoItems), [groupedAwaitingPoItems, sortConfig]);
+
+    const queueTotalPages = Math.ceil(sortedQueueGroups.length / ITEMS_PER_PAGE);
+    const awaitingPoTotalPages = Math.ceil(sortedAwaitingPoGroups.length / ITEMS_PER_PAGE);
+
+    const paginatedQueueGroups = useMemo(() => {
+        const start = (queuePage - 1) * ITEMS_PER_PAGE;
+        return sortedQueueGroups.slice(start, start + ITEMS_PER_PAGE);
+    }, [sortedQueueGroups, queuePage]);
+
+    const paginatedAwaitingPoGroups = useMemo(() => {
+        const start = (awaitingPoPage - 1) * ITEMS_PER_PAGE;
+        return sortedAwaitingPoGroups.slice(start, start + ITEMS_PER_PAGE);
+    }, [sortedAwaitingPoGroups, awaitingPoPage]);
+
     const handleItemSelect = (itemId: string, currentStatus: ProcurementItem['procurementStatus']) => {
         const selector = currentStatus === 'QUEUE' ? setSelectedQueueIds : setSelectedAwaitingPoIds;
         selector((prev) => prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]);
@@ -153,28 +197,18 @@ export default function ProcurementPage() {
             key,
             direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc',
         }));
+        setQueuePage(1);
+        setAwaitingPoPage(1);
     };
 
-    const renderTable = (items: ProcurementItem[], selectedIds: string[], currentStatus: ProcurementItem['procurementStatus'], groupedItems: GroupedItems) => {
-        const allSelected = items.length > 0 && selectedIds.length === items.length;
+    const renderTable = (
+        allItems: ProcurementItem[],
+        paginatedGroups: [string, ProcurementItem[]][],
+        selectedIds: string[],
+        currentStatus: ProcurementItem['procurementStatus']
+    ) => {
+        const allSelected = allItems.length > 0 && selectedIds.length === allItems.length;
         const someSelected = selectedIds.length > 0 && !allSelected;
-
-        // Sort groups
-        const sortedGroups = Object.entries(groupedItems).sort(([, itemsA], [, itemsB]) => {
-            if (sortConfig.key === 'date') {
-                const dateA = new Date(itemsA[0].request.createdAt).getTime();
-                const dateB = new Date(itemsB[0].request.createdAt).getTime();
-                return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
-            }
-            if (sortConfig.key === 'itemName') {
-                const nameA = itemsA[0].itemName.toLowerCase();
-                const nameB = itemsB[0].itemName.toLowerCase();
-                if (nameA < nameB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (nameA > nameB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            }
-            return 0;
-        });
 
         return (
             <div className="relative w-full overflow-x-auto">
@@ -214,7 +248,7 @@ export default function ProcurementPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {Object.keys(groupedItems).length === 0 ? (
+                        {paginatedGroups.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center justify-center gap-2">
@@ -224,7 +258,7 @@ export default function ProcurementPage() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            sortedGroups.map(([requestId, groupItems]) => {
+                            paginatedGroups.map(([requestId, groupItems]) => {
                                 return (
                                     <React.Fragment key={requestId}>
                                         {groupItems.map((item) => {
@@ -300,6 +334,36 @@ export default function ProcurementPage() {
         );
     }
 
+    const renderPagination = (currentPage: number, totalPages: number, setPage: (page: number) => void) => {
+        return (
+            <div className="flex items-center justify-between w-full">
+                <div className="text-xs text-muted-foreground">
+                    Page {currentPage} of {totalPages || 1}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-96">
@@ -345,58 +409,60 @@ export default function ProcurementPage() {
                 <TabsContent value="queue" className="mt-0">
                     <Card className="border-slate-200 shadow-sm overflow-hidden">
                         <CardHeader className="border-b border-slate-100 bg-slate-50/30 pb-4">
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Zap className="h-4 w-4 text-orange-500" />
-                                Items Queue
-                            </CardTitle>
-                            <CardDescription>Select items to generate a Request for Quotation (RFQ).</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {renderTable(queueItems, selectedQueueIds, 'QUEUE', groupedQueueItems)}
-                        </CardContent>
-                        {queueItems.length > 0 && (
-                            <CardFooter className="justify-between border-t border-slate-100 bg-slate-50/30 p-4">
-                                <div className="text-xs text-muted-foreground">
-                                    {selectedQueueIds.length} items selected
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Zap className="h-4 w-4 text-orange-500" />
+                                        Items Queue
+                                    </CardTitle>
+                                    <CardDescription>Select items to generate a Request for Quotation (RFQ).</CardDescription>
                                 </div>
                                 <Button
                                     onClick={handleGoToRequestQuotation}
                                     disabled={selectedQueueIds.length === 0}
                                     className="bg-orange-600 hover:bg-orange-700 text-white shadow-sm"
+                                    size="sm"
                                 >
-                                    <FileQuestion className="h-4 w-4 mr-2" />Generate RFQ
+                                    <FileQuestion className="h-4 w-4 mr-2" />Create RFQ
                                 </Button>
-                            </CardFooter>
-                        )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {renderTable(queueItems, paginatedQueueGroups, selectedQueueIds, 'QUEUE')}
+                        </CardContent>
+                        <CardFooter className="border-t border-slate-100 bg-slate-50/30 p-4">
+                            {renderPagination(queuePage, queueTotalPages, setQueuePage)}
+                        </CardFooter>
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="awaiting_po" className="mt-0">
                     <Card className="border-slate-200 shadow-sm overflow-hidden">
                         <CardHeader className="border-b border-slate-100 bg-slate-50/30 pb-4">
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <FileCheck className="h-4 w-4 text-blue-500" />
-                                Ready for Purchase
-                            </CardTitle>
-                            <CardDescription>Select items that have quotations to create a Purchase Order.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {renderTable(awaitingPoItems, selectedAwaitingPoIds, 'AWAITING_PO', groupedAwaitingPoItems)}
-                        </CardContent>
-                        {awaitingPoItems.length > 0 && (
-                            <CardFooter className="justify-between border-t border-slate-100 bg-slate-50/30 p-4">
-                                <div className="text-xs text-muted-foreground">
-                                    {selectedAwaitingPoIds.length} items selected
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <FileCheck className="h-4 w-4 text-blue-500" />
+                                        Ready for Purchase
+                                    </CardTitle>
+                                    <CardDescription>Select items that have quotations to create a Purchase Order.</CardDescription>
                                 </div>
                                 <Button
                                     onClick={handleGoToCreatePO}
                                     disabled={selectedAwaitingPoIds.length === 0}
                                     className="text-white shadow-sm"
+                                    size="sm"
                                 >
                                     <FileCheck className="h-4 w-4 mr-2" /> Create Purchase Order
                                 </Button>
-                            </CardFooter>
-                        )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {renderTable(awaitingPoItems, paginatedAwaitingPoGroups, selectedAwaitingPoIds, 'AWAITING_PO')}
+                        </CardContent>
+                        <CardFooter className="border-t border-slate-100 bg-slate-50/30 p-4">
+                            {renderPagination(awaitingPoPage, awaitingPoTotalPages, setAwaitingPoPage)}
+                        </CardFooter>
                     </Card>
                 </TabsContent>
             </Tabs>

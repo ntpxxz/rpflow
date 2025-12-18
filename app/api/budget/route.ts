@@ -74,3 +74,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: "Failed to update budget", error: error.message }, { status: 500 });
     }
 }
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const month = searchParams.get("month");
+
+        if (!month) {
+            return NextResponse.json({ message: "Month is required" }, { status: 400 });
+        }
+
+        if (!prisma.monthlyBudget) {
+            throw new Error("Database client not updated. Please restart the server.");
+        }
+
+        await prisma.monthlyBudget.delete({
+            where: { month },
+        });
+
+        return NextResponse.json({ message: "Budget reset successfully" });
+    } catch (error: any) {
+        // If record doesn't exist, it's fine
+        if (error.code === 'P2025') {
+            return NextResponse.json({ message: "Budget already reset" });
+        }
+        return NextResponse.json({ message: "Failed to reset budget", error: error.message }, { status: 500 });
+    }
+}

@@ -30,11 +30,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Helper to extract name from email
+function getNameFromEmail(email: string): string | null {
+  const match = email.match(/^([^@]+)/);
+  if (match) {
+    const namePart = match[1];
+    const name = namePart.replace(/[._]/g, " ");
+    return name.charAt(0).toUpperCase() + name.slice(1).toUpperCase();
+  }
+  return null;
+}
+
 function generateApprovalEmailHtml(
   newRequest: { id: string; requesterName: string },
   total: number,
   items: (ParsedItem & { imageUrl?: string })[],
-  requestType: "NORMAL" | "URGENT" | "PROJECT"
+  requestType: "NORMAL" | "URGENT" | "PROJECT",
+  approverEmail: string
 ) {
   let typeStyles = "";
   let typeHeaderText = "";
@@ -59,7 +71,7 @@ function generateApprovalEmailHtml(
       typeStyles =
         "background-color: #F3F4F6; border: 1px solid #E5E7EB; color: #374151; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
   }
-  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3095"}/purchase-requests/${newRequest.id}`;
+  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.98.238:3095"}/purchase-requests/${newRequest.id}`;
   const itemHtml = items
     .map(
       (item) => `
@@ -72,27 +84,31 @@ function generateApprovalEmailHtml(
     )
     .join("");
 
-  const subject = `${subjectPrefix}ใบขอซื้อใหม่รออนุมัติ - ${newRequest.requesterName}`;
+  const extractedName = getNameFromEmail(approverEmail);
+  const greetingTH = extractedName ? `Dear K.${extractedName},` : "Dear Approver,";
+
+  const subject = `${subjectPrefix}New Purchase Requisition Awaiting Approval - ${newRequest.requesterName}`;
   const html = `
-    <p>เรียน Approver,</p>
-    <p>มีใบขอซื้อใหม่ (PR) รอการอนุมัติจากคุณ</p>
-    <p><strong>ประเภท:</strong> ${requestType}</p>
-    <p><strong>ผู้ขอ:</strong> ${newRequest.requesterName}</p>
-    <p><strong>มูลค่ารวม:</strong> THB ${total.toFixed(2)}</p>
-    <br>
-    <strong>รายการ:</strong>
-    <ul>
-      ${itemHtml}
-    </ul>
-    <br>
-    <p>กรุณาคลิกลิงก์ด้านล่างเพื่อตรวจสอบและอนุมัติ:</p>
-    <a href="${reviewUrl}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
-      ตรวจสอบใบขอซื้อ
-    </a>
-    <br>
-    <p>ขอบคุณครับ</p>
-    <p>ขอแสดงความนับถือ</p>
-  `;
+<p>${greetingTH}</p>
+<p>There is a new Purchase Requisition (PR) awaiting your approval.</p>
+<p><strong>Type:</strong> ${requestType}</p>
+<p><strong>Requester:</strong> ${newRequest.requesterName}</p>
+<p><strong>Total Value:</strong> THB ${total.toFixed(2)}</p>
+<br>
+<strong>Items:</strong>
+<ul>
+${itemHtml}
+</ul>
+<br>
+<p>Please click the link below to review and approve:</p>
+<a href="${reviewUrl}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+Review Purchase Requisition
+</a>
+<br>
+<p>Thank you</p>
+
+<p>Sincerely yours</p>
+`;
   return { subject, html };
 }
 
@@ -297,6 +313,7 @@ export async function POST(req: Request) {
     // ใช้ userMail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ login email
     if (approver && (approver.userMail || approver.email)) {
       try {
+        const recipientEmail = approver.userMail || approver.email;
         const { subject, html } = generateApprovalEmailHtml(
           {
             id: purchaseRequest.id,
@@ -309,13 +326,13 @@ export async function POST(req: Request) {
             detail: item.detail || undefined,
             imageUrl: item.imageUrl || undefined,
           })),
-          purchaseRequest.type
+          purchaseRequest.type,
+          recipientEmail
         );
-        // ใช้ userMail ถ้ามีตั้งค่าไว้ ไม่เช่นนั้นใช้ email ปกติ
-        const recipientEmail = approver.userMail || approver.email;
+
         console.log(`📧 [APPROVER EMAIL] Sending to: ${recipientEmail} (userMail: ${approver.userMail}, loginEmail: ${approver.email})`);
         await transporter.sendMail({
-          from: GMAIL_USER,
+          from: `IOT Purchase Request System <${GMAIL_USER}>`,
           to: recipientEmail,
           subject,
           html,
