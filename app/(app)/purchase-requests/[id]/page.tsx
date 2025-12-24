@@ -44,10 +44,11 @@ import {
   CreditCard,
   AlertCircle,
   Info,
-  Printer
+  Printer,
+  Trash2,
+  CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-// import Image from "next/image"; // Removed to use img tag
 
 // --- Type Definition ---
 type PurchaseRequestWithDetails = PurchaseRequest & {
@@ -71,7 +72,9 @@ export default function PurchaseRequestDetailPage() {
   // Action States
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked && requestDetails) {
@@ -153,6 +156,50 @@ export default function PurchaseRequestDetailPage() {
       fetchRequestDetails();
     } catch (err: any) {
       console.error(err);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePrintPDF = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const res = await fetch(`/api/purchase-requests/${requestId}/pdf`);
+      if (!res.ok) throw new Error((await res.json()).message);
+      const pdfBlob = await res.blob();
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Failed to generate PDF: ${err.message}`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this request? This action cannot be undone.")) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/purchase-requests/${requestId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to delete request");
+      }
+
+      setDeleteSuccess(true);
+      // Automatically redirect after 2 seconds
+      setTimeout(() => {
+        router.push("/purchase-requests");
+        router.refresh();
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message);
       setIsSubmitting(false);
     }
   };
@@ -323,93 +370,32 @@ export default function PurchaseRequestDetailPage() {
     );
   }
 
+  if (deleteSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in zoom-in duration-300">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle className="w-10 h-10 text-green-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Request Deleted</h2>
+        <p className="text-slate-500 mb-8">The purchase request has been successfully deleted.</p>
+        <Button
+          onClick={() => {
+            router.push("/purchase-requests");
+            router.refresh();
+          }}
+          className="bg-slate-900 text-white hover:bg-slate-800"
+        >
+          Back to Requests
+        </Button>
+      </div>
+    );
+  }
+
   if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!requestDetails) return <div className="text-center py-10 text-muted-foreground">Request not found.</div>;
 
   return (
     <>
-      {/* 
-        =======================================================================
-        PRINT-ONLY VIEW
-        =======================================================================
-      */}
-      <div className="hidden print:block bg-white p-8 font-sans text-xs text-slate-800 leading-normal max-w-[210mm] mx-auto">
-        <div className="flex justify-between items-start mb-6">
-          <div className="space-y-1">
-            <h1 className="text-xl font-bold text-black uppercase mb-1">MinebeaMitsumi (Thailand)</h1>
-            <p className="text-slate-600">IOT Section, Spindle Motor Division</p>
-            <p className="text-slate-600">1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
-            <p className="text-slate-600">Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold text-blue-700 uppercase tracking-wide mb-1">Purchase Request</h2>
-            <div className="text-slate-500 text-xs mt-1">
-              Document No: <strong className="text-black">{requestDetails.id}</strong>
-            </div>
-            <div className="text-slate-500 text-xs">
-              Date: <strong className="text-black">{format(new Date(requestDetails.createdAt), "dd MMM yyyy")}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-6 border border-slate-200 rounded p-4 bg-slate-50">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase">Requester</span>
-              <span className="font-bold text-slate-900">{requestDetails.user.name}</span>
-              <span className="block text-slate-500">{requestDetails.user.email}</span>
-            </div>
-            <div className="text-right">
-              <span className="block text-[10px] font-bold text-slate-500 uppercase">Due Date</span>
-              <span className="font-bold text-slate-900">{requestDetails.dueDate ? format(new Date(requestDetails.dueDate), "dd MMM yyyy") : "-"}</span>
-            </div>
-          </div>
-        </div>
-
-        <table className="w-full border-collapse mb-6 text-xs">
-          <thead>
-            <tr className="bg-slate-100 border-b-2 border-slate-300">
-              <th className="py-2 px-2 text-center w-10 border-b border-slate-200 font-bold text-slate-700 uppercase">#</th>
-              <th className="py-2 px-2 text-left w-16 border-b border-slate-200 font-bold text-slate-700 uppercase">Image</th>
-              <th className="py-2 px-2 text-left border-b border-slate-200 font-bold text-slate-700 uppercase">Item Description</th>
-              <th className="py-2 px-2 text-center w-16 border-b border-slate-200 font-bold text-slate-700 uppercase">Qty</th>
-              <th className="py-2 px-2 text-right w-24 border-b border-slate-200 font-bold text-slate-700 uppercase">Unit Price</th>
-              <th className="py-2 px-2 text-right w-24 border-b border-slate-200 font-bold text-slate-700 uppercase">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requestDetails.items.filter(item => selectedItems.has(item.id)).map((item, index) => (
-              <tr key={item.id} className="border-b border-slate-100">
-                <td className="py-2 px-2 text-center text-slate-500">{index + 1}</td>
-                <td className="py-2 px-2 text-center">
-                  {item.imageUrl ? (
-                    <div className="w-10 h-10 relative mx-auto border border-slate-100 bg-white p-0.5 rounded">
-                      <img src={item.imageUrl} alt="" className="w-full h-full object-contain" />
-                    </div>
-                  ) : (
-                    <span className="text-slate-300">-</span>
-                  )}
-                </td>
-                <td className="py-2 px-2 align-middle">
-                  <span className="font-bold block text-slate-900">{item.itemName}</span>
-                  <span className="text-[10px] text-slate-500">{item.detail || item.inventoryDetails?.description || ''}</span>
-                </td>
-                <td className="py-2 px-2 text-center font-bold text-slate-900">{item.quantity}</td>
-                <td className="py-2 px-2 text-right text-slate-700">฿{Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                <td className="py-2 px-2 text-right font-bold text-slate-900">฿{(item.quantity * Number(item.unitPrice)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-            ))}
-            <tr className="border-t-2 border-slate-200">
-              <td colSpan={6} className="py-2"></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="fixed bottom-0 left-0 right-0 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-2 pb-4">
-          System Generated by RPFlow
-        </div>
-      </div>
-
       <div className="space-y-6 max-w-7xl mx-auto pb-10 font-sans print:hidden">
 
         {/* Page Header */}
@@ -554,10 +540,23 @@ export default function PurchaseRequestDetailPage() {
                 <Badge variant="secondary" className="bg-blue-100 text-blue-600 font-normal">
                   {requestDetails.items.length} Items
                 </Badge>
-                <Button variant="default" size="sm" onClick={() => window.print()} className="h-7 text-xs bg-orange-600 border-orange-600 text-white hover:bg-orange-700">
-                  <Printer className="w-3.5 h-3.5 mr-1.5" /> Print PDF
+                <Button variant="default" size="sm" onClick={handlePrintPDF} disabled={isGeneratingPdf} className="h-7 text-xs bg-orange-600 border-orange-600 text-white hover:bg-orange-700">
+                  {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Printer className="w-3.5 h-3.5 mr-1.5" />}
+                  Print PDF
                 </Button>
-
+                {/* Delete Button for Admin */}
+                {(session?.user as any)?.role === "Admin" && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={isSubmitting}
+                    className="h-7 text-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Delete
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>

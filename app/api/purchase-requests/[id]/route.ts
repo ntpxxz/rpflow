@@ -66,8 +66,25 @@ export async function DELETE(
       return new NextResponse("Forbidden: Admin only", { status: 403 });
     }
 
-    await prisma.purchaseRequest.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      // Delete related items first to avoid FK constraint errors
+      await tx.requestItem.deleteMany({
+        where: { requestId: id },
+      });
+
+      // Delete other related records explicitly to ensure cleanup
+      await tx.approvalStep.deleteMany({
+        where: { requestId: id },
+      });
+
+      await tx.requestHistory.deleteMany({
+        where: { requestId: id },
+      });
+
+      // Finally delete the request
+      await tx.purchaseRequest.delete({
+        where: { id },
+      });
     });
 
     return NextResponse.json({ message: "Deleted successfully" });

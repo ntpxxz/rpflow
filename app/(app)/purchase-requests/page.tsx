@@ -95,7 +95,12 @@ export default function MyRequestsPage() {
     try {
       const res = await fetch(`/api/purchase-requests/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
+
+      // Update local state immediately
       setRequests(prev => prev.filter(r => r.id !== id));
+
+      // Show explicit confirmation as requested
+      alert("Request deleted successfully");
     } catch (err) {
       console.error(err);
       alert("Failed to delete request");

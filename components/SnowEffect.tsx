@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export default function SnowEffect() {
-    const [snowflakes, setSnowflakes] = useState<Array<{ id: number; left: string; animationDuration: string; animationDelay: string; fontSize: string }>>([]);
+    const [snowflakes, setSnowflakes] = useState<Array<{ id: number; left: string; animationDuration: string; animationDelay: string; fontSize: string; opacity: string }>>([]);
 
     useEffect(() => {
         const count = 50;
@@ -12,9 +12,10 @@ export default function SnowEffect() {
             newSnowflakes.push({
                 id: i,
                 left: `${Math.random() * 100}%`,
-                animationDuration: `${Math.random() * 5 + 5}s`,
-                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${Math.random() * 10 + 5}s`,
+                animationDelay: `${Math.random() * 7}s`,
                 fontSize: `${Math.random() * 10 + 10}px`,
+                opacity: `${25}%`,
             });
         }
         setSnowflakes(newSnowflakes);
@@ -31,6 +32,7 @@ export default function SnowEffect() {
                         animation: `fall ${flake.animationDuration} linear infinite`,
                         animationDelay: flake.animationDelay,
                         fontSize: flake.fontSize,
+                        opacity: flake.opacity,
                     }}
                 >
                     ❄
@@ -38,14 +40,14 @@ export default function SnowEffect() {
             ))}
             <style jsx>{`
         @keyframes fall {
-          0% {
-            transform: translateY(-20px) translateX(0);
-          }
+                0% {
+                    transform: translateY(-20px) translateX(0);
+                }
           100% {
-            transform: translateY(100vh) translateX(20px);
-          }
-        }
-      `}</style>
+                    transform: translateY(100vh) translateX(20px);
+                }
+            }
+                `}</style>
         </div>
     );
 }

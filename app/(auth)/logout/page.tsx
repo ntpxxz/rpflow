@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 
 export default function LogoutPage() {
     useEffect(() => {
-        signOut({ callbackUrl: "/login" });
+        signOut({ callbackUrl: process.env.NEXT_PUBLIC_APP_URL + "/login" });
     }, []);
 
     return (
