@@ -10,12 +10,15 @@ export const metadata = {
   description: "Next.js 15 + TypeScript SaaS",
 };
 
+import SnowEffect from "@/components/SnowEffect";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <SnowEffect />
         <SessionProviderWrapper>
-        {children}
+          {children}
         </SessionProviderWrapper>
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
       </body>

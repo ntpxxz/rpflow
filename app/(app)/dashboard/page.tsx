@@ -271,11 +271,11 @@ export default function Dashboard() {
     icon: any,
     className?: string
   }) => (
-    <Card className={cn("border-slate-200 shadow-sm hover:shadow-md transition-shadow", className)}>
+    <Card className={cn("border-border shadow-sm hover:shadow-md transition-shadow", className)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between space-y-0 pb-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="p-2 bg-slate-50 rounded-full text-slate-500">
+          <div className="p-2 bg-muted/50 rounded-full text-muted-foreground">
             <Icon className="h-4 w-4" />
           </div>
         </div>
@@ -318,7 +318,7 @@ export default function Dashboard() {
           title="Pending Approval"
           value={stats.pendingCount.toLocaleString()}
           icon={Clock}
-          className="border-l-4 border-l-orange-500" // เน้นสีส้ม
+          className="border-l-4 border-l-primary" // เน้นสี Theme
         />
 
         {/* 3. Processing (Active Orders) */}
@@ -340,8 +340,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Orders Analytics (Line Chart) */}
-        <Card className="lg:col-span-2 border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
+        <Card className="lg:col-span-2 border-border shadow-sm">
+          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-border">
             <CardTitle className="text-lg font-semibold">Request Trends</CardTitle>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
           </CardHeader>
@@ -376,10 +376,10 @@ export default function Dashboard() {
                   <Line
                     type="monotone"
                     dataKey="Orders"
-                    stroke="#f97316"
+                    stroke="var(--primary)"
                     strokeWidth={2.5}
                     dot={false}
-                    activeDot={{ r: 5, fill: '#f97316', stroke: 'white', strokeWidth: 2 }}
+                    activeDot={{ r: 5, fill: 'var(--primary)', stroke: 'white', strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -388,8 +388,8 @@ export default function Dashboard() {
         </Card>
 
         {/* Orders by Status (Donut Chart) */}
-        <Card className="lg:col-span-1 border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-slate-100">
+        <Card className="lg:col-span-1 border-border shadow-sm">
+          <CardHeader className="flex flex-row justify-between items-center pb-4 border-b border-border">
             <CardTitle className="text-lg font-semibold">Status Breakdown</CardTitle>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground cursor-pointer" />
           </CardHeader>
@@ -435,8 +435,8 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Orders Table */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="flex flex-row justify-between items-center pb-3 border-b border-slate-100">
+      <Card className="border-border shadow-sm">
+        <CardHeader className="flex flex-row justify-between items-center pb-3 border-b border-border">
           <CardTitle className="text-lg font-semibold">Recent Requests</CardTitle>
           <Button
             variant="ghost"
@@ -450,24 +450,24 @@ export default function Dashboard() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent border-b border-slate-200">
-                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pl-6">
+                <TableRow className="hover:bg-transparent border-b border-border">
+                  <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide pl-6">
                     Request #
                   </TableHead>
-                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Requester
                   </TableHead>
-                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Date
                   </TableHead>
-                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Status
                   </TableHead>
-                  <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide pr-6 text-right">
+                  <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide pr-6 text-right">
                     Total Amount
                   </TableHead>
                   {(session?.user as any)?.role === 'Admin' && (
-                    <TableHead className="h-11 text-xs font-semibold text-slate-600 uppercase tracking-wide w-[50px]">
+                    <TableHead className="h-11 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-[50px]">
                       Action
                     </TableHead>
                   )}
@@ -485,7 +485,7 @@ export default function Dashboard() {
                     return (
                       <TableRow
                         key={req.id}
-                        className="cursor-pointer hover:bg-slate-50/80 border-b border-slate-100 transition-colors"
+                        className="cursor-pointer hover:bg-accent/50 border-b border-border transition-colors"
                         onClick={() => router.push(`/purchase-requests/${req.id}`)}
                       >
                         <TableCell className="py-4 pl-6">

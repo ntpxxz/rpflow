@@ -16,8 +16,10 @@ export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center justify-between bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
-      <div className="text-xl font-bold text-blue-600">Purchase flow</div>
+    <nav className="flex items-center justify-between bg-card border-b border-border px-6 py-3 shadow-sm">
+      <div className="text-xl font-bold text-primary flex items-center gap-2">
+        <span>🎄</span> Purchase flow
+      </div>
 
       <ul className="flex space-x-6">
         {navLinks.map((link) => (
@@ -25,8 +27,8 @@ export default function Navbar() {
             <Link
               href={link.href}
               className={cn(
-                "text-gray-600 hover:text-blue-600 font-medium",
-                pathname === link.href && "text-blue-600 border-b-2 border-blue-600 pb-1"
+                "text-muted-foreground hover:text-primary font-medium transition-colors",
+                pathname === link.href && "text-primary border-b-2 border-primary pb-1"
               )}
             >
               {link.name}
@@ -36,7 +38,7 @@ export default function Navbar() {
       </ul>
 
       <div className="flex items-center space-x-4">
-        <span className="text-sm text-gray-500">Hello, Admin</span>
+        <span className="text-sm text-muted-foreground">Hello, Admin 🎅</span>
       </div>
     </nav>
   );

@@ -25,7 +25,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const userInitial = user?.name?.[0]?.toUpperCase() || "U";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-6 shadow-sm dark:bg-zinc-950 dark:border-zinc-800 no-print">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm dark:bg-zinc-950 dark:border-zinc-800 no-print">
       {/* Mobile Menu Button */}
       <Button
         variant="outline"
@@ -43,7 +43,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search..."
-            className="w-full pl-9 bg-slate-50 border-slate-200 focus-visible:ring-orange-500"
+            className="w-full pl-9 bg-muted/50 border-border focus-visible:ring-ring"
           />
         </div>
       </div>
@@ -55,41 +55,41 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <span className="sr-only">Notifications</span>
         </Button>*/}
 
-        <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block" />
+        <div className="h-8 w-[1px] bg-border mx-1 hidden md:block" />
 
         {/* User Dropdown */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" className="h-auto p-1 md:px-2 hover:bg-slate-100 rounded-full md:rounded-lg">
+            <Button variant="ghost" className="h-auto p-1 md:px-2 hover:bg-accent rounded-full md:rounded-lg">
               <div className="flex items-center gap-3">
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-orange-100 border-2 border-white ring-1 ring-slate-100 flex items-center justify-center text-orange-700 font-bold shadow-sm">
+                <div className="w-9 h-9 rounded-full bg-primary/10 border-2 border-white ring-1 ring-border flex items-center justify-center text-primary font-bold shadow-sm">
                   {userInitial}
                 </div>
 
                 {/* User Info (Desktop only) */}
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-semibold text-slate-900 leading-none">{user?.name}</p>
-                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mt-1">{userRole}</p>
+                  <p className="text-sm font-semibold text-foreground leading-none">{user?.name}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-1">{userRole}</p>
                 </div>
 
-                <ChevronDown className="w-4 h-4 text-slate-400 hidden md:block" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
               </div>
             </Button>
           </PopoverTrigger>
 
           <PopoverContent className="w-56 p-1 mr-4" align="end">
-            <div className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="px-2 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               My Account
             </div>
 
             <div className="space-y-0.5">
-              <Link href="/profile" className="w-full flex items-center gap-2 px-2 py-2 text-sm text-slate-700 rounded-md hover:bg-slate-100 transition-colors text-left">
-                <UserIcon className="w-4 h-4 text-slate-400" />
+              <Link href="/profile" className="w-full flex items-center gap-2 px-2 py-2 text-sm text-foreground rounded-md hover:bg-accent transition-colors text-left">
+                <UserIcon className="w-4 h-4 text-muted-foreground" />
                 Profile Settings
               </Link>
 
-              <div className="h-[1px] bg-slate-100 my-1" />
+              <div className="h-[1px] bg-border my-1" />
 
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}

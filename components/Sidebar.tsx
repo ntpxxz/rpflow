@@ -112,19 +112,19 @@ export default function Sidebar({ open, onClose }: Props) {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-64 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 z-50 transform transition-transform duration-300 ease-in-out no-print flex flex-col shadow-lg md:shadow-none",
+          "fixed left-0 top-0 h-full w-64 bg-sidebar dark:bg-zinc-900 border-r border-sidebar-border dark:border-zinc-800 z-50 transform transition-transform duration-300 ease-in-out no-print flex flex-col shadow-lg md:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
           "md:translate-x-0 md:static md:inset-auto"
         )}
       >
-        <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-zinc-800">
+        <div className="h-16 flex items-center px-6 border-b border-sidebar-border dark:border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-md">
+            <div className="w-9 h-9 bg-gradient-to-br from-sidebar-primary to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-md">
               <HandCoins className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight block leading-none">KHOBUY</span>
-              <span className="text-[10px] text-slate-400 font-medium tracking-wider">PROCUREMENT</span>
+              <span className="text-lg font-bold text-sidebar-foreground dark:text-white tracking-tight block leading-none">KHOBUY 🎄</span>
+              <span className="text-[10px] text-muted-foreground font-medium tracking-wider">PROCUREMENT</span>
             </div>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function Sidebar({ open, onClose }: Props) {
           {menuGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
               {group.label && (
-                <div className="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="px-3 mb-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   {group.label}
                 </div>
               )}
@@ -156,17 +156,17 @@ export default function Sidebar({ open, onClose }: Props) {
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
                         isActive
-                          ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground dark:bg-orange-900/20 dark:text-orange-400"
+                          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                       )}
                     >
                       {isActive && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-orange-500 rounded-r-full" />
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-sidebar-primary rounded-r-full" />
                       )}
 
                       <Icon className={cn(
                         "w-5 h-5 transition-colors",
-                        isActive ? "text-orange-600 dark:text-orange-400" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
+                        isActive ? "text-sidebar-primary dark:text-orange-400" : "text-muted-foreground group-hover:text-sidebar-foreground dark:text-slate-500 dark:group-hover:text-slate-300"
                       )} />
                       <span className={cn(isActive && "font-semibold")}>{l.name}</span>
                     </Link>

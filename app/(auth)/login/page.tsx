@@ -51,12 +51,12 @@ function LoginForm() {
     <Card className="border-slate-200 shadow-xl">
       <CardHeader className="space-y-1 text-center pb-8 pt-8">
         <div className="flex justify-center mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-lg">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-200 shadow-lg">
             <Box className="w-7 h-7" />
           </div>
         </div>
-        <CardTitle className="text-2xl font-bold text-slate-900">
-          Welcome back
+        <CardTitle className="text-2xl font-bold text-foreground">
+          Welcome back 🎅
         </CardTitle>
         <CardDescription>
           Enter your credentials to access KHOBUY
@@ -74,7 +74,7 @@ function LoginForm() {
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="email"
                 type="email"
@@ -89,7 +89,7 @@ function LoginForm() {
 
           <div className="space-y-2">
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
@@ -102,15 +102,15 @@ function LoginForm() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
+          <Button type="submit" className="w-full bg-primary hover:bg-orange-700 text-white" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In 🎁"}
           </Button>
         </form>
       </CardContent>
 
       <CardFooter className="justify-center border-t border-slate-100 pt-6 pb-6">
-        <p className="text-xs text-slate-500">
-          Don't have an account? <span className="text-orange-600 font-medium cursor-pointer hover:underline">Contact Admin</span>
+        <p className="text-xs text-muted-foreground">
+          Don't have an account? <span className="text-primary font-medium cursor-pointer hover:underline">Contact Admin</span>
         </p>
       </CardFooter>
     </Card>
