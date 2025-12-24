@@ -92,7 +92,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <div className="h-[1px] bg-border my-1" />
 
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => signOut({ callbackUrl: process.env.NEXT_PUBLIC_APP_URL + "/login" })}
                 className="w-full flex items-center gap-2 px-2 py-2 text-sm text-red-600 rounded-md hover:bg-red-50 transition-colors text-left"
               >
                 <LogOut className="w-4 h-4" />

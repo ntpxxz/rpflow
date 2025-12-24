@@ -47,7 +47,7 @@ import {
   Printer
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+// import Image from "next/image"; // Removed to use img tag
 
 // --- Type Definition ---
 type PurchaseRequestWithDetails = PurchaseRequest & {
@@ -589,8 +589,12 @@ export default function PurchaseRequestDetailPage() {
                     </TableCell>
                     <TableCell className="pl-2 py-4 align-middle">
                       {item.imageUrl ? (
-                        <div className="w-16 h-16 rounded-lg border border-slate-200 bg-white overflow-hidden relative shadow-sm">
-                          <Image src={item.imageUrl} alt={item.itemName} fill className="object-contain p-1" />
+                        <div className="w-16 h-16 rounded-lg border border-slate-200 bg-white overflow-hidden relative shadow-sm flex items-center justify-center">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.itemName}
+                            className="max-w-full max-h-full object-contain p-1"
+                          />
                         </div>
                       ) : (
                         <div className="w-16 h-16 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
