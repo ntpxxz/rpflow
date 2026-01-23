@@ -20,7 +20,9 @@ import {
   ShoppingCart,
   Coins,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -211,10 +213,13 @@ export default function Dashboard() {
   }, [requests, sortConfig]);
 
   const paginatedRequests = useMemo(() => {
+    // Use pagination for all users
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return sortedRequests.slice(startIndex, endIndex);
   }, [sortedRequests, currentPage]);
+
+  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
 
   const handleOpenModal = (e: React.MouseEvent, stepId: string, action: "Approved" | "Rejected") => {
     e.stopPropagation();
@@ -540,6 +545,35 @@ export default function Dashboard() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination Footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20">
+              <span className="text-xs text-muted-foreground font-medium">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, sortedRequests.length)} of {sortedRequests.length} requests
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-md border-border"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-md border-border"
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

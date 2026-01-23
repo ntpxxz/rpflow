@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, RequestStatus, ApprovalStatus } from "@prisma/client";
 import nodemailer from "nodemailer";
+import { format } from "date-fns";
 
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
@@ -42,7 +43,7 @@ function generateStatusEmailHtml(
   const subject = `[PR Status Update] Your request ${request.id} has been ${status.toLowerCase()}`;
 
   // Set Link
-  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.98.238:3095"}/purchase-requests/${request.id}`;
+  const viewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.96.238:3095"}/purchase-requests/${request.id}`;
 
   // Set styles based on status
   let statusBoxStyle = isApproved
@@ -293,14 +294,57 @@ async function checkAndReserveBudget(
   requestId: string,
   totalAmount: number
 ): Promise<boolean> {
-  console.log(`[Budget Check] Checking budget for Request ID: ${requestId}, Amount: ${totalAmount}`);
-  const availableBudget = 100000; // Mock budget
+  try {
+    const request = await tx.purchaseRequest.findUnique({
+      where: { id: requestId },
+      select: { type: true, createdAt: true }
+    });
 
-  if (totalAmount <= availableBudget) {
-    console.log(`[Budget Check] OK. Budget reserved.`);
-    return true;
-  } else {
-    console.warn(`[Budget Check] FAILED. Not enough budget.`);
+    if (!request) return false;
+
+    const month = format(request.createdAt, "yyyy-MM");
+    const type = request.type;
+
+    const budget = await tx.monthlyBudget.findUnique({
+      where: {
+        month_type: {
+          month,
+          type
+        }
+      }
+    });
+
+    // If no budget is set, we treat it as unlimited
+    if (!budget) {
+      console.log(`[Budget Check] No budget set for ${month} (${type}). Allowing request.`);
+      return true;
+    }
+
+    // Calculate current spent for this month and type
+    const startDate = new Date(`${month}-01`);
+    const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+
+    const otherRequests = await tx.purchaseRequest.findMany({
+      where: {
+        id: { not: requestId },
+        type: type,
+        createdAt: { gte: startDate, lt: endDate },
+        status: { in: [RequestStatus.Approved, RequestStatus.Ordered, RequestStatus.Received, RequestStatus.AwaitingQuotation] }
+      },
+      select: { totalAmount: true }
+    });
+
+    const currentSpent = otherRequests.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
+
+    if (currentSpent + totalAmount <= Number(budget.amount)) {
+      console.log(`[Budget Check] OK. ${currentSpent + totalAmount} / ${budget.amount} used.`);
+      return true;
+    } else {
+      console.warn(`[Budget Check] FAILED. ${currentSpent + totalAmount} exceeds budget ${budget.amount}.`);
+      return false;
+    }
+  } catch (error) {
+    console.error("[Budget Check Error]", error);
     return false;
   }
 }

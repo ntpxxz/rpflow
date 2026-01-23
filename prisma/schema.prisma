@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +5,160 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  role             UserRole          @default(Requester)
+  password         String?
+  userMail         String?           @map("user_mail")
+  approvalSteps    ApprovalStep[]
+  goodsReceipts    GoodsReceipt[]
+  purchaseRequests PurchaseRequest[]
+  historyEntries   RequestHistory[]
+
+  @@map("users")
+}
+
+model PurchaseRequest {
+  id            String           @id
+  status        RequestStatus    @default(Pending)
+  totalAmount   Decimal?         @map("total_amount")
+  requesterName String
+  type          RequestType
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  userId        String           @map("user_id")
+  dueDate       DateTime?
+  isOverBudget  Boolean          @default(false) @map("is_over_budget")
+  items         RequestItem[]
+  approvalSteps ApprovalStep[]
+  user          User             @relation(fields: [userId], references: [id])
+  history       RequestHistory[]
+
+  @@map("purchase_requests")
+}
+
+model RequestItem {
+  id                   String               @id @default(cuid())
+  itemName             String
+  detail               String?
+  imageUrl             String?
+  quantity             Int
+  unitPrice            Decimal              @db.Decimal(10, 2)
+  requestId            String
+  quantityOrdered      Int                  @default(0) @map("quantity_ordered")
+  isQuotationRequested Boolean              @default(false) @map("is_quotation_requested")
+  rfqId                String?              @map("rfq_id")
+  request              PurchaseRequest      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  rfq                  RequestForQuotation? @relation(fields: [rfqId], references: [id])
+  poItems              PurchaseOrderItem[]
+}
+
+model RequestForQuotation {
+  id        String        @id @default(cuid())
+  rfqNumber String        @unique @map("rfq_number")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  items     RequestItem[]
+
+  @@map("request_for_quotations")
+}
+
+model ApprovalStep {
+  id         String          @id @default(cuid())
+  stepName   String          @map("step_name")
+  status     ApprovalStatus  @default(Pending)
+  comment    String?
+  approvedAt DateTime?       @map("approved_at")
+  requestId  String          @map("request_id")
+  approverId String          @map("approver_id")
+  approver   User            @relation(fields: [approverId], references: [id])
+  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, stepName, approverId])
+  @@map("approval_steps")
+}
+
+model RequestHistory {
+  id        String          @id @default(cuid())
+  action    String
+  details   String?
+  timestamp DateTime        @default(now())
+  requestId String          @map("request_id")
+  actorId   String          @map("actor_id")
+  actor     User            @relation(fields: [actorId], references: [id])
+  request   PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("request_history")
+}
+
+model PurchaseOrder {
+  id        String              @id @default(cuid())
+  poNumber  String              @unique @map("po_number")
+  status    POStatus            @default(Pending)
+  sentAt    DateTime?           @map("sent_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+  receipts  GoodsReceipt[]
+  items     PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String             @id @default(cuid())
+  quantity        Int
+  unitPrice       Decimal            @map("unit_price")
+  poId            String             @map("po_id")
+  detail          String?
+  itemName        String
+  requestItemId   String?            @map("request_item_id")
+  imageUrl        String?
+  quotationNumber String?
+  receiptItems    GoodsReceiptItem[]
+  po              PurchaseOrder      @relation(fields: [poId], references: [id], onDelete: Cascade)
+  requestItem     RequestItem?       @relation(fields: [requestItemId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+model GoodsReceipt {
+  id           String             @id @default(cuid())
+  notes        String?
+  receivedAt   DateTime           @default(now()) @map("received_at")
+  poId         String             @map("po_id")
+  receivedById String             @map("received_by_id")
+  items        GoodsReceiptItem[]
+  po           PurchaseOrder      @relation(fields: [poId], references: [id])
+  receivedBy   User               @relation(fields: [receivedById], references: [id])
+
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id               String            @id @default(cuid())
+  quantityReceived Int               @map("quantity_received")
+  receiptId        String            @map("receipt_id")
+  poItemId         String            @map("po_item_id")
+  poItem           PurchaseOrderItem @relation(fields: [poItemId], references: [id])
+  receipt          GoodsReceipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@map("goods_receipt_items")
+}
+
+model MonthlyBudget {
+  id        String      @id @default(cuid())
+  month     String
+  amount    Decimal     @db.Decimal(15, 2)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  type      RequestType @default(NORMAL)
+
+  @@unique([month, type])
+  @@map("monthly_budgets")
 }
 
 enum POStatus {
@@ -18,26 +170,11 @@ enum POStatus {
 }
 
 enum UserRole {
-  Requester @map("requester") 
-  Approver  @map("approver")  
-  Purchaser @map("purchaser")  
-  Admin     @map("admin") 
+  Requester @map("requester")
+  Approver  @map("approver")
+  Purchaser @map("purchaser")
+  Admin     @map("admin")
   User      @map("user")
-}
-
-model User {
-  id               String           @id @default(cuid())
-  name             String
-  password         String?
-  email            String           @unique
-  role             UserRole         @default(Requester)
-  
-  purchaseRequests PurchaseRequest[] 
-  approvalSteps    ApprovalStep[]    
-  historyEntries   RequestHistory[]  
-  goodsReceipts    GoodsReceipt[]   
-  userMail         String?          @map("user_mail")
-  @@map("users")
 }
 
 enum RequestType {
@@ -47,179 +184,17 @@ enum RequestType {
 }
 
 enum RequestStatus {
-  Pending   @map("pending")
-  Approved  @map("approved")
-  Rejected  @map("rejected")
-  Ordered   @map("ordered")
-  Received  @map("received")
-  Cancelled @map("cancelled")
+  Pending           @map("pending")
+  Approved          @map("approved")
+  Ordered           @map("ordered")
+  Received          @map("received")
+  Rejected          @map("rejected")
+  Cancelled         @map("cancelled")
   AwaitingQuotation @map("awaiting_quotation")
 }
 
-model PurchaseRequest {
-  id        String   @id 
-  status    RequestStatus @default(Pending)
-  isOverBudget Boolean       @default(false) @map("is_over_budget")
-  totalAmount Decimal? @map("total_amount")
-
-  requesterName String
-  type          RequestType
-  dueDate   DateTime?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relationships
-  user    User     @relation(fields: [userId], references: [id])
-  userId  String   @map("user_id")
-
-  items         RequestItem[]
-  approvalSteps ApprovalStep[]
-  history       RequestHistory[]
-  @@map("purchase_requests")
-}
-
-model RequestItem {
-  id        String   @id @default(cuid())
- 
-  itemName  String
-  detail    String?
-  imageUrl  String?
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2) 
-  
-  isQuotationRequested Boolean @default(false) @map("is_quotation_requested")
-  rfq       RequestForQuotation? @relation(fields: [rfqId], references: [id])
-  rfqId     String?              @map("rfq_id")
-
-  request   PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId String
-  quantityOrdered Int @default(0) @map("quantity_ordered")
-  poItems PurchaseOrderItem[]
-}
-
-model RequestForQuotation {
-  id        String   @id @default(cuid())
-  rfqNumber String   @unique @map("rfq_number")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  items     RequestItem[]
-  
-  @@map("request_for_quotations")
-}
-
 enum ApprovalStatus {
-  Pending   @map("pending")
-  Approved  @map("approved")
-  Rejected  @map("rejected")
-}
-
-model ApprovalStep {
-  id         String         @id @default(cuid())
-  stepName   String         @map("step_name")
-  status     ApprovalStatus @default(Pending)
-  comment    String?
-  approvedAt DateTime?      @map("approved_at")
-
-  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId  String          @map("request_id")
-
-  approver   User            @relation(fields: [approverId], references: [id])
-  approverId String          @map("approver_id")
-
-  @@unique([requestId, stepName, approverId]) 
-  @@map("approval_steps")
-}
-
-model RequestHistory {
-  id        String   @id @default(cuid())
-  action    String
-  details   String?
-  timestamp DateTime @default(now())
-
-  request   PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  requestId String          @map("request_id")
-
-  actor     User            @relation(fields: [actorId], references: [id])
-  actorId   String          @map("actor_id")
-
-  @@map("request_history")
-}
-
-model PurchaseOrder {
-  id       String   @id @default(cuid())
-  poNumber String   @unique @map("po_number")
-  status   POStatus @default(Pending)
- 
-  sentAt   DateTime? @map("sent_at")
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  items     PurchaseOrderItem[]
-  receipts  GoodsReceipt[]
-
-  @@map("purchase_orders")
-}
-
-model PurchaseOrderItem {
-  id        String  @id @default(cuid())
-  quantity  Int
-  unitPrice Decimal @map("unit_price")
-  quotationNumber String?
-
-  // Relationships
-  po     PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  poId   String        @map("po_id")
-
-  itemName String
-  detail   String?
-  imageUrl String?
-  requestItem   RequestItem? @relation(fields: [requestItemId], references: [id], onDelete: SetNull)
-  requestItemId String?      @map("request_item_id")
-
-  receiptItems GoodsReceiptItem[]
-  @@map("purchase_order_items")
-}
-
-model GoodsReceipt {
-  id        String    @id @default(cuid())
-  notes     String?
-  receivedAt DateTime @default(now()) @map("received_at")
-
-  // Relationships
-  po        PurchaseOrder @relation(fields: [poId], references: [id])
-  poId      String        @map("po_id") 
-  
-  receivedBy User         @relation(fields: [receivedById], references: [id])
-  receivedById String     @map("received_by_id") 
-
-  items     GoodsReceiptItem[] 
-
-  @@map("goods_receipts")
-}
-
-model GoodsReceiptItem {
-  id                 String @id @default(cuid())
-  quantityReceived Int    @map("quantity_received")
-
-  // Relationships
-  receipt          GoodsReceipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  receiptId        String            @map("receipt_id")
-
-  poItem           PurchaseOrderItem @relation(fields: [poItemId], references: [id])
-  poItemId         String            @map("po_item_id") 
-
-  @@map("goods_receipt_items")
-}
-
-model MonthlyBudget {
-  id        String   @id @default(cuid())
-  month     String   // Format: "YYYY-MM"
-  amount    Decimal  @db.Decimal(15, 2)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([month])
-  @@map("monthly_budgets")
+  Pending  @map("pending")
+  Approved @map("approved")
+  Rejected @map("rejected")
 }

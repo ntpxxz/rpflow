@@ -69,7 +69,7 @@ export default function MyRequestsPage() {
 
   const fetchRequests = () => {
     setLoading(true);
-    fetch("/api/purchase-requests")
+    fetch("/api/purchase-requests?myRequests=true")
       .then((res) => res.json())
       .then((data: RequestWithDetails[]) => {
         setRequests(data);

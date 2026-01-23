@@ -1,3 +1,4 @@
+// app/api/purchase-requests/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import { prisma as db } from "@/lib/prisma";
 import { z } from "zod";
@@ -7,7 +8,7 @@ import { generateNextRequestId } from "@/lib/idGenerator";
 import nodemailer from "nodemailer";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { RequestStatus, ApprovalStatus } from "@prisma/client";
+import { RequestStatus, ApprovalStatus, RequestType } from "@prisma/client";
 
 // (Zod Schemas)
 const itemSchema = z.object({
@@ -71,7 +72,7 @@ function generateApprovalEmailHtml(
       typeStyles =
         "background-color: #F3F4F6; border: 1px solid #E5E7EB; color: #374151; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px;";
   }
-  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.98.238:3095"}/purchase-requests/${newRequest.id}`;
+  const reviewUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://172.16.96.238:3095"}/purchase-requests/${newRequest.id}`;
   const itemHtml = items
     .map(
       (item) => `
@@ -122,14 +123,16 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const myRequestsOnly = searchParams.get("myRequests") === "true";
 
-    const whereClause: any = {
-      userId: (session.user as any).id, // Filter by current user
-    };
-    const currentUser = await db.user.findUnique({ where: { id: (session.user as any).id } });
-    if (currentUser?.role === "Admin") {
-      delete whereClause.userId;
+    // All authenticated users can see all requests by default
+    // But can filter to see only their own requests with ?myRequests=true
+    const whereClause: any = {};
+
+    if (myRequestsOnly) {
+      whereClause.userId = (session.user as any).id;
     }
+
     if (status) {
       // Map string to Enum
       const statusKey = Object.keys(RequestStatus).find(
@@ -180,7 +183,7 @@ export async function POST(req: Request) {
 
     const items = JSON.parse(itemsJson);
     const parsedItems = itemsArraySchema.parse(items);
-    const parsedType = requestTypeEnum.parse(requestType);
+    const parsedType = requestTypeEnum.parse(requestType) as RequestType;
 
     const totalAmount = parsedItems.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
@@ -193,7 +196,14 @@ export async function POST(req: Request) {
 
     // Defensive check for Prisma Client update
     if (db.monthlyBudget) {
-      const budget = await db.monthlyBudget.findUnique({ where: { month: currentMonth } });
+      const budget = await db.monthlyBudget.findUnique({
+        where: {
+          month_type: {
+            month: currentMonth,
+            type: parsedType
+          }
+        }
+      });
 
       if (budget) {
         const startDate = new Date(`${currentMonth}-01`);
@@ -203,6 +213,7 @@ export async function POST(req: Request) {
           where: {
             createdAt: { gte: startDate, lt: endDate },
             status: { notIn: ["Cancelled", "Rejected"] },
+            type: parsedType,
           },
           select: { totalAmount: true }
         });
@@ -211,9 +222,6 @@ export async function POST(req: Request) {
 
         if (currentSpent + totalAmount > Number(budget.amount)) {
           isOverBudget = true;
-          // return NextResponse.json({
-          // message: ...
-          // }, { status: 400 });
         }
       }
     } else {

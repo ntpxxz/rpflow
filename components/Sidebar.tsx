@@ -123,7 +123,7 @@ export default function Sidebar({ open, onClose }: Props) {
               <HandCoins className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-lg font-bold text-sidebar-foreground dark:text-white tracking-tight block leading-none">KHOBUY 🎄</span>
+              <span className="text-lg font-bold text-sidebar-foreground dark:text-white tracking-tight block leading-none">KHOBUY</span>
               <span className="text-[10px] text-muted-foreground font-medium tracking-wider">PROCUREMENT</span>
             </div>
           </div>

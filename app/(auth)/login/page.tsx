@@ -56,7 +56,7 @@ function LoginForm() {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold text-foreground">
-          Welcome back 🎅
+          Welcome back
         </CardTitle>
         <CardDescription>
           Enter your credentials to access KHOBUY
