@@ -12,15 +12,11 @@ import path from "path";
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 
-// 1. ฟังก์ชันแปลงรูปภาพ (ใช้เหมือน PO)
+// 1. ฟังก์ชันแปลงรูปภาพ
 async function convertImageToBase64(imagePath: string): Promise<string | null> {
   try {
-    const cleanPath = imagePath.startsWith("/")
-      ? imagePath.slice(1)
-      : imagePath;
+    const cleanPath = imagePath.startsWith("/") ? imagePath.slice(1) : imagePath;
     const filePath = path.join(process.cwd(), "public", cleanPath);
-
-    console.log(`📂 Trying to read image from: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
       console.error(`❌ File not found: ${filePath}`);
@@ -30,16 +26,8 @@ async function convertImageToBase64(imagePath: string): Promise<string | null> {
     const imageBuffer = fs.readFileSync(filePath);
     const base64 = imageBuffer.toString("base64");
     const ext = path.extname(filePath).toLowerCase();
-    const mimeType =
-      ext === ".png"
-        ? "image/png"
-        : ext === ".gif"
-          ? "image/gif"
-          : ext === ".webp"
-            ? "image/webp"
-            : "image/jpeg";
+    const mimeType = ext === ".png" ? "image/png" : ext === ".gif" ? "image/gif" : ext === ".webp" ? "image/webp" : "image/jpeg";
 
-    console.log(`✅ Image converted successfully (${mimeType})`);
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
     console.error("Image conversion error:", error);
@@ -58,8 +46,8 @@ function getNameFromEmail(email: string): string | null {
   return null;
 }
 
-// 3. HTML Template สำหรับ PDF (ใช้ Layout เดียวกับ Preview เพื่อความสวยงาม)
-function generateRFQHtml(rfqNumber: string, items: any[]): string {
+// 3. HTML Template สำหรับ PDF
+function generateRFQHtml(rfqNumber: string, items: any[], logoBase64: string | null): string {
   const today = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -75,30 +63,25 @@ function generateRFQHtml(rfqNumber: string, items: any[]): string {
           @page { margin: 10mm 15mm; }
           body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #333; line-height: 1.4; }
           .header-container { display: flex; justify-content: space-between; align-items: top; margin-bottom: 20px; }
+          .company-info .logo { height: 50px; margin-bottom: 10px; }
           .company-info h1 { margin: 0 0 5px 0; font-size: 20px; color: #000; text-transform: uppercase; }
           .company-info p { margin: 0; font-size: 11px; color: #555; }
           .doc-title { text-align: right; }
           .doc-title h2 { margin: 0; font-size: 24px; color: #1a56db; text-transform: uppercase; letter-spacing: 1px; }
           .doc-title span { display: block; font-size: 12px; color: #666; margin-top: 4px; }
-          .info-grid { display: table; width: 100%; margin-bottom: 20px; border-collapse: separate; border-spacing: 10px 0; }
-          .info-col { display: table-cell; width: 48%; vertical-align: top; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background-color: #fcfcfc; }
-          .info-label { font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 5px; display: block; }
-          .info-line { border-bottom: 1px dashed #ccc; padding-bottom: 2px; margin-bottom: 4px; min-height: 16px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           th { background-color: #f1f5f9; color: #1e293b; font-weight: 700; text-align: left; padding: 10px; border-bottom: 2px solid #cbd5e1; font-size: 11px; text-transform: uppercase; }
           td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
           .img-box { width: 48px; height: 48px; object-fit: contain; border: 1px solid #eee; padding: 2px; background: white; border-radius: 4px; }
           .footer-container { margin-top: 40px; page-break-inside: avoid; }
           .terms-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 11px; background-color: #fff; }
-          .signature-grid { display: table; width: 100%; border-spacing: 20px 0; }
-          .sig-box { display: table-cell; width: 50%; border-top: 1px solid #333; padding-top: 10px; text-align: center; }
           .page-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
         </style>
       </head>
       <body>
         <div class="header-container">
            <div class="company-info">
-              <h1>MinebeaMitsumi (Thailand)</h1>
+              ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h1>MinebeaMitsumi (Thailand)</h1>'}
               <p>IOT Section, Spindle Motor Division</p>
               <p>1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
               <p>Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
@@ -113,17 +96,15 @@ function generateRFQHtml(rfqNumber: string, items: any[]): string {
           <thead>
             <tr>
               <th width="40" style="text-align:center;">#</th>
-              <th width="60" style="text-align:start;">Item</th>
-              <th></th>
+              <th width="60">Image</th>
+              <th>Item Description</th>
               <th width="60" style="text-align:center;">Qty</th>
               <th width="80" style="text-align:right;">Unit Price</th>
               <th width="100" style="text-align:right;">Amount</th>
             </tr>
           </thead>
           <tbody>
-            ${items
-      .map(
-        (item, index) => `
+            ${items.map((item, index) => `
               <tr>
                 <td style="text-align:center; color:#666;">${index + 1}</td>
                 <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : "-"}</td>
@@ -135,9 +116,7 @@ function generateRFQHtml(rfqNumber: string, items: any[]): string {
                 <td style="background-color: #fafafa;"></td> 
                 <td style="background-color: #fafafa;"></td> 
               </tr>
-            `
-      )
-      .join("")}
+            `).join("")}
              <tr>
                 <td colspan="4" style="text-align:right; font-weight:bold; padding-top:15px;">Total (Excl. VAT):</td>
                 <td colspan="2" style="background-color: #fafafa;"></td>
@@ -164,10 +143,7 @@ export async function POST(req: NextRequest) {
     const { itemIds, recipientEmail, ccEmail, rfqNumber } = body;
 
     if (!itemIds || !recipientEmail) {
-      return NextResponse.json(
-        { message: "Missing required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     console.log(`\n📧 Sending RFQ: ${rfqNumber} to ${recipientEmail}`);
@@ -177,22 +153,17 @@ export async function POST(req: NextRequest) {
       where: { id: { in: itemIds } },
     });
 
-    // 2. แปลงรูปภาพสำหรับ PDF
-    console.log(`\n🖼️  Converting ${itemsData.length} images...`);
+    // 2. แปลง Logo
+    const logoBase64 = await convertImageToBase64('uploads/Logo_minebeamitsumi.png');
+
+    // 3. แปลงรูปภาพสำหรับ PDF
     const itemsWithImages = await Promise.all(
       itemsData.map(async (item) => {
         let imgUrl = null;
         if (item.imageUrl) {
-          if (
-            item.imageUrl.startsWith("http") ||
-            item.imageUrl.startsWith("data:")
-          ) {
+          if (item.imageUrl.startsWith("http") || item.imageUrl.startsWith("data:")) {
             imgUrl = item.imageUrl;
-            console.log(`✅ Already base64/url for: ${item.itemName}`);
-          } else if (
-            item.imageUrl.startsWith("/") ||
-            item.imageUrl.startsWith("uploads")
-          ) {
+          } else if (item.imageUrl.startsWith("/") || item.imageUrl.startsWith("uploads")) {
             imgUrl = await convertImageToBase64(item.imageUrl);
           }
         }
@@ -204,10 +175,8 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // 3. สร้าง PDF
-    console.log(`📄 Generating PDF for RFQ...`);
-    const html = generateRFQHtml(rfqNumber, itemsWithImages);
-
+    // 4. สร้าง PDF
+    const html = generateRFQHtml(rfqNumber, itemsWithImages, logoBase64);
     const browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -220,12 +189,7 @@ export async function POST(req: NextRequest) {
       Promise.all(
         Array.from(document.images)
           .filter((img) => !img.complete)
-          .map(
-            (img) =>
-              new Promise((res) => {
-                img.onload = img.onerror = res;
-              })
-          )
+          .map((img) => new Promise((res) => { img.onload = img.onerror = res; }))
       )
     );
     await new Promise((r) => setTimeout(r, 500));
@@ -236,15 +200,11 @@ export async function POST(req: NextRequest) {
       margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
     });
     await browser.close();
-    console.log(`✅ PDF generated successfully`);
-
-    // 4. สร้างเนื้อหาอีเมล
-    const extractedName = getNameFromEmail(recipientEmail);
-    const greetingTH = extractedName
-      ? `เรียน คุณ ${extractedName},`
-      : "เรียน ผู้จำหน่าย,";
 
     // 5. ส่งอีเมล
+    const extractedName = getNameFromEmail(recipientEmail);
+    const greetingTH = extractedName ? `เรียน คุณ ${extractedName},` : "เรียน ผู้จำหน่าย,";
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -273,13 +233,11 @@ export async function POST(req: NextRequest) {
       attachments: [
         {
           filename: `${rfqNumber}.pdf`,
-          content: Buffer.from(pdfBuffer), // Convert Uint8Array to Buffer
+          content: Buffer.from(pdfBuffer),
           contentType: "application/pdf",
         },
       ],
     });
-
-    console.log(`✅ Email sent successfully!`);
 
     // 6. อัปเดตสถานะใน Database
     await prisma.requestItem.updateMany({
@@ -290,9 +248,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("❌ Error sending RFQ:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

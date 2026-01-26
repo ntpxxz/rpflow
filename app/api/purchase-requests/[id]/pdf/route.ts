@@ -1,4 +1,4 @@
-
+// app/api/purchase-requests/[id]/pdf/route.ts
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
@@ -11,34 +11,34 @@ import { format } from "date-fns";
 
 // Helper: Convert image to base64
 async function convertImageToBase64(imagePath: string): Promise<string | null> {
-    try {
-        const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-        const filePath = path.join(process.cwd(), 'public', cleanPath);
+  try {
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+    const filePath = path.join(process.cwd(), 'public', cleanPath);
 
-        if (!fs.existsSync(filePath)) {
-            console.error(`❌ [PDF] File not found: ${filePath}`);
-            return null;
-        }
-
-        const imageBuffer = fs.readFileSync(filePath);
-        const base64 = imageBuffer.toString('base64');
-        const ext = path.extname(filePath).toLowerCase();
-        const mimeType = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-
-        return `data:${mimeType};base64,${base64}`;
-    } catch (error) {
-        console.error("Image conversion error:", error);
-        return null;
+    if (!fs.existsSync(filePath)) {
+      console.error(`❌ [PDF] File not found: ${filePath}`);
+      return null;
     }
+
+    const imageBuffer = fs.readFileSync(filePath);
+    const base64 = imageBuffer.toString('base64');
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeType = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error("Image conversion error:", error);
+    return null;
+  }
 }
 
 // HTML Generator for Purchase Request
-function generatePRHtml(pr: any, items: any[]): string {
-    const today = format(new Date(), 'dd MMM yyyy');
-    const createdDate = format(new Date(pr.createdAt), 'dd MMM yyyy');
-    const dueDate = pr.dueDate ? format(new Date(pr.dueDate), 'dd MMM yyyy') : '-';
+function generatePRHtml(pr: any, items: any[], logoBase64: string | null): string {
+  const today = format(new Date(), 'dd MMM yyyy');
+  const createdDate = format(new Date(pr.createdAt), 'dd MMM yyyy');
+  const dueDate = pr.dueDate ? format(new Date(pr.dueDate), 'dd MMM yyyy') : '-';
 
-    return `
+  return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -47,10 +47,11 @@ function generatePRHtml(pr: any, items: any[]): string {
           @page { margin: 10mm 15mm; }
           body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #333; line-height: 1.4; }
           .header-container { display: flex; justify-content: space-between; align-items: top; margin-bottom: 20px; }
+          .company-info .logo { height: 50px; margin-bottom: 10px; }
           .company-info h1 { margin: 0 0 5px 0; font-size: 20px; color: #000; text-transform: uppercase; }
           .company-info p { margin: 0; font-size: 11px; color: #555; }
           .doc-title { text-align: right; }
-          .doc-title h2 { margin: 0; font-size: 24px; color: #ea580c; text-transform: uppercase; letter-spacing: 1px; } /* Orange color for PR */
+          .doc-title h2 { margin: 0; font-size: 24px; color: #ea580c; text-transform: uppercase; letter-spacing: 1px; }
           .doc-title span { display: block; font-size: 12px; color: #666; margin-top: 4px; }
           
           .info-box { border: 1px solid #e2e8f0; border-radius: 4px; padding: 15px; margin-bottom: 20px; background-color: #f8fafc; }
@@ -77,7 +78,7 @@ function generatePRHtml(pr: any, items: any[]): string {
       <body>
         <div class="header-container">
            <div class="company-info">
-              <h1>MinebeaMitsumi (Thailand)</h1>
+              ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h1>MinebeaMitsumi (Thailand)</h1>'}
               <p>IOT Section, Spindle Motor Division</p>
               <p>1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
               <p>Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
@@ -126,7 +127,7 @@ function generatePRHtml(pr: any, items: any[]): string {
                 <td style="text-align:center;">${item.imageUrl ? `<img src="${item.imageUrl}" class="img-box" />` : '-'}</td>
                 <td>
                     <span style="font-weight:bold; display:block;">${item.itemName}</span>
-                    <span style="font-size:11px; color:#64748b;">${item.detail || item.inventoryDetails?.description || ''}</span>
+                    <span style="font-size:11px; color:#64748b;">${item.detail || ''}</span>
                 </td>
                 <td style="text-align:center;"><strong>${item.quantity}</strong></td>
                 <td style="text-align:right;">฿${Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td> 
@@ -163,73 +164,75 @@ function generatePRHtml(pr: any, items: any[]): string {
 }
 
 export async function GET(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const { id } = await params;
+  try {
+    const { id } = await params;
 
-        const pr = await prisma.purchaseRequest.findUnique({
-            where: { id },
-            include: {
-                user: true,
-                items: true,
-            }
-        });
+    const pr = await prisma.purchaseRequest.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        items: true,
+      }
+    });
 
-        if (!pr) {
-            return NextResponse.json({ message: "Purchase Request not found" }, { status: 404 });
-        }
-
-        // Convert images
-        const itemsWithImages = await Promise.all(pr.items.map(async (item) => {
-            let imgUrl = null;
-            if (item.imageUrl) {
-                if (item.imageUrl.startsWith('http') || item.imageUrl.startsWith('data:')) {
-                    imgUrl = item.imageUrl;
-                }
-                else if (item.imageUrl.startsWith('/') || item.imageUrl.startsWith('uploads')) {
-                    imgUrl = await convertImageToBase64(item.imageUrl);
-                }
-            }
-            return {
-                ...item,
-                imageUrl: imgUrl,
-            };
-        }));
-
-        // Generate HTML
-        const html = generatePRHtml(pr, itemsWithImages);
-
-        // Generate PDF
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1200, height: 1600 });
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-
-        await page.evaluate(() => Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => new Promise(res => { img.onload = img.onerror = res; }))));
-        // await new Promise(r => setTimeout(r, 500));
-
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-        });
-
-        await browser.close();
-
-        return new NextResponse(pdfBuffer as any, {
-            headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `inline; filename="PR-${pr.id}.pdf"`
-            }
-        });
-
-    } catch (error: any) {
-        console.error(error);
-        return NextResponse.json({ message: "Failed to generate PDF", error: error.message }, { status: 500 });
+    if (!pr) {
+      return NextResponse.json({ message: "Purchase Request not found" }, { status: 404 });
     }
+
+    // 1. แปลง Logo
+    const logoBase64 = await convertImageToBase64('uploads/Logo_minebeamitsumi.png');
+
+    // 2. แปลงรูปภาพสินค้า
+    const itemsWithImages = await Promise.all(pr.items.map(async (item) => {
+      let imgUrl = null;
+      if (item.imageUrl) {
+        if (item.imageUrl.startsWith('http') || item.imageUrl.startsWith('data:')) {
+          imgUrl = item.imageUrl;
+        }
+        else if (item.imageUrl.startsWith('/') || item.imageUrl.startsWith('uploads')) {
+          imgUrl = await convertImageToBase64(item.imageUrl);
+        }
+      }
+      return {
+        ...item,
+        imageUrl: imgUrl,
+      };
+    }));
+
+    // Generate HTML
+    const html = generatePRHtml(pr, itemsWithImages, logoBase64);
+
+    // Generate PDF
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1200, height: 1600 });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    await page.evaluate(() => Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => new Promise(res => { img.onload = img.onerror = res; }))));
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+    });
+
+    await browser.close();
+
+    return new NextResponse(pdfBuffer as any, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="PR-${pr.id}.pdf"`
+      }
+    });
+
+  } catch (error: any) {
+    console.error(error);
+    return NextResponse.json({ message: "Failed to generate PDF", error: error.message }, { status: 500 });
+  }
 }

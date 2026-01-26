@@ -103,7 +103,7 @@ function LoginForm() {
           </div>
 
           <Button type="submit" className="w-full bg-primary hover:bg-orange-700 text-white" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In 🎁"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
           </Button>
         </form>
       </CardContent>

@@ -238,7 +238,7 @@ export default function PurchaseOrderDetailPage() {
       <div className="hidden print:block bg-white p-8 font-sans text-xs text-slate-800 leading-normal max-w-[210mm] mx-auto">
         <div className="flex justify-between items-start mb-6">
           <div className="space-y-1">
-            <h1 className="text-xl font-bold text-black uppercase mb-1">MinebeaMitsumi (Thailand)</h1>
+            <img src="/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-16 mb-2" />
             <p className="text-slate-600">IOT Section, Spindle Motor Division</p>
             <p className="text-slate-600">1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
             <p className="text-slate-600">Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
@@ -272,7 +272,6 @@ export default function PurchaseOrderDetailPage() {
                 <td className="py-2 px-2 text-center">
                   {item.imageUrl ? (
                     <div className="w-10 h-10 relative mx-auto border border-slate-100 bg-white p-0.5 rounded">
-                      {/* Use standard img tag for print to ensure it loads without Next.js optimization issues in some print contexts, though Image is fine usually */}
                       <img src={item.imageUrl} alt="" className="w-full h-full object-contain" />
                     </div>
                   ) : (
@@ -337,25 +336,26 @@ export default function PurchaseOrderDetailPage() {
                 <span>•</span>
                 <span>{format(new Date(poDetails.createdAt), "MMMM d, yyyy")}</span>
               </div>
-
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3 w-full md:w-auto">
-
             <Button onClick={() => setIsReceiveModalOpen(true)} className="flex-1 md:flex-none bg-orange-600 text-white hover:bg-orange-700 shadow-sm transition-all hover:shadow-md">
               <PackageCheck className="h-4 w-4 mr-2" />
               Receive Items
             </Button>
-            {/*<Button variant="outline" onClick={handlePrintOrSavePDF} disabled={isGeneratingPdf} className="flex-1 md:flex-none border-slate-200 hover:bg-slate-50 text-slate-700">
-              {isGeneratingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
+            <Button variant="outline" onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none border-slate-200 hover:bg-slate-50 text-slate-700">
+              <Send className="h-4 w-4 mr-2" />
+              Send via Email
+            </Button>
+            <Button variant="outline" onClick={handlePrintOrSavePDF} className="flex-1 md:flex-none border-slate-200 hover:bg-slate-50 text-slate-700">
+              <Printer className="h-4 w-4 mr-2" />
               Print / PDF
-            </Button>*/}
+            </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
           {/* --- Left Column: Document Preview --- */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="printable-area bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -364,11 +364,9 @@ export default function PurchaseOrderDetailPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start mb-10 border-b border-slate-100 pb-8">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-orange-100 shadow-lg">
-                        <FileText className="w-6 h-6" />
-                      </div>
+                      <img src="/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-12" />
                       <div>
-                        <h2 className="text-xl font-bold text-slate-900">PURCHASE ORDER</h2>
+                        <h2 className="text-xl font-bold text-slate-900 uppercase">Purchase Order</h2>
                         <p className="text-sm text-slate-500 font-medium">Official Document</p>
                       </div>
                     </div>
@@ -549,7 +547,6 @@ export default function PurchaseOrderDetailPage() {
               </CardContent>
             </Card>
           </div>
-
         </div>
 
         {/* --- Receive Items Modal --- */}
@@ -659,7 +656,6 @@ export default function PurchaseOrderDetailPage() {
 
         {/* --- Email Send Modal --- */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          {/* ... (Existing Email Modal Code - keeping it simple for now or can style similarly) ... */}
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Send PO Email</DialogTitle>
