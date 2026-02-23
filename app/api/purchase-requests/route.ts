@@ -269,7 +269,7 @@ export async function POST(req: Request) {
           const buffer = Buffer.from(bytes);
           await writeFile(filePath, buffer);
 
-          imageUrl = `/uploads/${fileName}`;
+          imageUrl = `/api/uploads/${fileName}`;
         } catch (uploadError) {
           console.error(`Failed to upload image for item ${i}:`, uploadError);
           // Continue without image

@@ -238,7 +238,7 @@ export default function PurchaseOrderDetailPage() {
       <div className="hidden print:block bg-white p-8 font-sans text-xs text-slate-800 leading-normal max-w-[210mm] mx-auto">
         <div className="flex justify-between items-start mb-6">
           <div className="space-y-1">
-            <img src="/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-16 mb-2" />
+            <img src="/api/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-16 mb-2" />
             <p className="text-slate-600">IOT Section, Spindle Motor Division</p>
             <p className="text-slate-600">1/1 Moo 7 Phaholyothin Rd, Km.51, Ayutthaya 13180</p>
             <p className="text-slate-600">Tel: 2472 | Email: nattapon.m@minebea.co.th</p>
@@ -364,7 +364,7 @@ export default function PurchaseOrderDetailPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start mb-10 border-b border-slate-100 pb-8">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <img src="/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-12" />
+                      <img src="/api/uploads/Logo_minebeamitsumi.png" alt="Logo" className="h-12" />
                       <div>
                         <h2 className="text-xl font-bold text-slate-900 uppercase">Purchase Order</h2>
                         <p className="text-sm text-slate-500 font-medium">Official Document</p>
