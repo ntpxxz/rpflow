@@ -16,7 +16,13 @@ const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 // ฟังก์ชันแปลง file path เป็น base64 data URL
 async function convertImageToBase64(imagePath: string): Promise<string | null> {
   try {
-    const cleanPath = imagePath.startsWith("/") ? imagePath.slice(1) : imagePath;
+    let cleanPath = imagePath.startsWith("/") ? imagePath.slice(1) : imagePath;
+
+    // Handle /api/uploads prefix
+    if (cleanPath.startsWith('api/uploads/')) {
+      cleanPath = cleanPath.replace('api/uploads/', 'uploads/');
+    }
+
     const filePath = path.join(process.cwd(), "public", cleanPath);
 
     if (!fs.existsSync(filePath)) {
