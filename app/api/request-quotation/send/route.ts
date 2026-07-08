@@ -5,6 +5,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
+import { generateNextRfqNumber } from "@/lib/rfqNumberGenerator";
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
@@ -146,11 +147,14 @@ function generateRFQHtml(rfqNumber: string, items: any[], logoBase64: string | n
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { itemIds, recipientEmail, ccEmail, rfqNumber } = body;
+    const { itemIds, recipientEmail, ccEmail } = body;
 
     if (!itemIds || !recipientEmail) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
+
+    // Generate the authoritative RFQ number server-side (the client value is a draft only)
+    const rfqNumber = await generateNextRfqNumber();
 
     console.log(`\n📧 Sending RFQ: ${rfqNumber} to ${recipientEmail}`);
 
@@ -245,13 +249,19 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    // 6. อัปเดตสถานะใน Database
-    await prisma.requestItem.updateMany({
-      where: { id: { in: itemIds } },
-      data: { isQuotationRequested: true },
+    // 6. บันทึก RFQ ลง Database และผูกสินค้าเข้ากับใบขอราคานี้
+    await prisma.$transaction(async (tx) => {
+      const rfq = await tx.requestForQuotation.create({
+        data: { rfqNumber },
+      });
+
+      await tx.requestItem.updateMany({
+        where: { id: { in: itemIds } },
+        data: { isQuotationRequested: true, rfqId: rfq.id },
+      });
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, rfqNumber });
   } catch (error: any) {
     console.error("❌ Error sending RFQ:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -104,8 +104,9 @@ function RequestQuotationContent() {
         }),
       });
 
-      if (!res.ok) throw new Error((await res.json()).message);
-      alert("RFQ sent successfully!");
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || result.error);
+      alert(`RFQ sent successfully! Quotation No: ${result.rfqNumber ?? rfqNumber}`);
       setIsModalOpen(false);
       router.push("/procurement");
     } catch (err: any) {

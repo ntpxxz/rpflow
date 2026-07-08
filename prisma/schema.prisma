@@ -52,6 +52,9 @@ model RequestItem {
   quantityOrdered      Int                  @default(0) @map("quantity_ordered")
   isQuotationRequested Boolean              @default(false) @map("is_quotation_requested")
   rfqId                String?              @map("rfq_id")
+  quotationNumber      String?              @map("quotation_number")
+  quotedUnitPrice      Decimal?             @db.Decimal(10, 2) @map("quoted_unit_price")
+  quotedAt             DateTime?            @map("quoted_at")
   request              PurchaseRequest      @relation(fields: [requestId], references: [id], onDelete: Cascade)
   rfq                  RequestForQuotation? @relation(fields: [rfqId], references: [id])
   poItems              PurchaseOrderItem[]

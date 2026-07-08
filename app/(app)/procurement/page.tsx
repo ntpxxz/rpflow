@@ -383,6 +383,14 @@ export default function ProcurementPage() {
                         Manage items waiting for quotation and purchase orders.
                     </p>
                 </div>
+                <Button
+                    variant="outline"
+                    onClick={() => router.push("/procurement/review-quotation")}
+                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Review Quotation
+                </Button>
             </div>
 
             {/* Tabs & Content */}

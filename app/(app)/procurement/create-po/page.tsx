@@ -66,15 +66,19 @@ function CreatePOContent() {
         setItems(filteredItems);
         
         const initPrices: Record<string, string> = {};
+        const initQuotations: Record<string, string> = {};
         const initQuantities: Record<string, string> = {};
-        
+
         filteredItems.forEach(item => {
             const qtyToOrder = item.quantity - item.quantityOrdered;
-            initPrices[item.id] = item.unitPrice.toString();
-            initQuantities[item.id] = qtyToOrder.toString(); 
+            // Prefer the reviewed quote (from Review Quotation) over the requester's estimate
+            initPrices[item.id] = (item.quotedUnitPrice ?? item.unitPrice).toString();
+            initQuotations[item.id] = item.quotationNumber ?? "";
+            initQuantities[item.id] = qtyToOrder.toString();
         });
-        
+
         setPrices(initPrices);
+        setQuotations(initQuotations);
         setQuantities(initQuantities);
       })
       .catch(err => console.error(err))
